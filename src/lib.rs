@@ -1,3 +1,5 @@
+mod solver;
+
 #[cfg(test)]
 mod tests {
     #[test]
