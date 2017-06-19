@@ -2,6 +2,7 @@
 name = "dicemix"
 version = "0.1.0"
 authors = ["Tim Ruffing <crypto@timruffing.de>"]
+license = "MIT"
 
 [dependencies]
 
