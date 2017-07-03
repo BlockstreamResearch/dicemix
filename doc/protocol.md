@@ -48,15 +48,29 @@ We note that authentication is only required for termination but not for anonymi
 
 ### Pseudocode
 TODO: Extend to multiple messages per peer
-TODO: Parallel runs
 ```
 run := -1
 P_exclude := {}
+(my_kesk, my_kepk) := (undef, undef)
+(my_next_kesk, my_next_kepk) := (undef, undef)
+
 loop
     run := run + 1
 
-    // If this is not the first run, exclude offline or malicious peers
-    if run > 0 then
+    // In the first run, we perform a key exchange.
+    // In later runs, we exclude peers who have been offline or malicious in the previous run.
+    if run = 0 then
+        // Key exchange
+        (my_kesk, my_kepk) := new_sig_keypair()
+
+        // FIXME sign the kepk with the long-term key
+        broadcast "KE" || my_kepk
+        receive "KE" || p.kepk from all p in P
+            where validate_kepk(p.kepk)
+            missing P_missing
+
+        P := P \ P_missing
+    else
         if P_exclude != {} then
             P := P \ P_exclude
         else
@@ -78,6 +92,10 @@ loop
             for all (p1, p2) in P^2 with p1 != p2 and p1.kepk = p2.kepk do
                 P := P \ {p1, p2}
 
+            // Rotate keys
+            (my_kesk, my_kepk) := (my_next_kesk, my_next_kepk)
+            (my_next_kesk, my_next_kepk) := (undef, undef)
+
     if |P| = 0 then
         fail "No peers left."
         break
@@ -94,22 +112,11 @@ loop
     sid_hash := hash("SID" || sid)
     // FIXME more SIDs later?
 
-    // Key exchange
-    (my_kesk, my_kepk) := new_sig_keypair()
-
-    // FIXME sign the kepk with the long-term key
-    broadcast "KE" || my_kepk
-    receive "KE" || p.kepk from all p in P
-        where validate_kepk(p.kepk)
-        missing P_missing
-
-    P := P \ P_missing
-
     // Derive shared keys
     for all p in P do
         p.seed_dcexp := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DCEXP")
         p.prg_dcexp := new_prg(seed_dcexp)
-        p.seed_dcsimple := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DCSIMPLE")
+        p.seed_dcsimple := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DC")
         p.prg_dcsimple := new_prg(seed_dcsimple)
 
     // Generate signature key pair
@@ -165,9 +172,19 @@ loop
         if padding_size > 0 then
             my_padding := my_padding ^ p.prg_dcsimple.get_bytes(slot_size)
 
-    broadcast "DCSIMPLE" || my_dc[0] || ... || my_dc[|P|] || my_padding
-    receive "DCSIMPLE" || p.dc[0] || ... || p.dc[|P|] || my_padding from all p in P
-        missing P_exclude
+    if (my_next_kesk, my_next_kepk) = (undef, undef) then
+        // Key exchange
+        (my_next_kesk, my_next_kepk) := new_sig_keypair()
+        // FIXME sign the kepk with the long-term key
+
+        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[|P|] || my_padding
+        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[|P|] || p.padding from all p in P
+            where validate_kepk(p.next_kepk)
+            missing P_exclude
+    else
+        broadcast "DC" || my_dc[0] || ... || my_dc[|P|] || my_padding
+        receive "DC" || p.dc[0] || ... || p.dc[|P|] || p.padding from all p in P
+            missing P_exclude
 
     if P_exclude != {} then
         continue
