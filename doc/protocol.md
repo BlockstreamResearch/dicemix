@@ -47,7 +47,6 @@ All protocol messages are assumed to be authenticated. Unauthenticated messages 
 We note that authentication is only required for termination but not for anonymity.
 
 ### Pseudocode
-TODO: Extend to multiple messages per peer
 ```
 run := -1
 P_exclude := {}
@@ -83,6 +82,7 @@ loop
 
             for all p in P do
                 replay all protocol messages of p using p.kesk
+                // TODO Expand that part
                 if p has sent an incorrect message then
                     P := P \ {p}
 
@@ -120,54 +120,69 @@ loop
         p.prg_dcsimple := new_prg(seed_dcsimple)
 
     // Generate signature key pair
-    otsk_seed := hash("OTSK_SEED" || my_kesk)
-    (otsk, my_otvk) := new_ke_keypair(otsk_seed)
+    otsk_seeds[] := array of my_num_msgs bitstrings
+    otsks[] := array of my_num_msgs OTSKs
+    my_otvks[] := array of my_num_msgs OTVKs
+    for j := 0 to my_num_msgs do
+        otsk_seeds[j] := hash("OTSK_SEED" || sid_hash || j || my_kesk)
+        (otsks[j], my_otvks[j]) := new_ke_keypair(otsk_seeds[j])
 
     // Run a DC-net with exponential encoding
-    my_dc[] := array of |P| finite field elements
-    otvk_hash = hash("OTVK" || my_otvk)
-    for i := 0 to |P| do
-        my_dc[i] := otvk_hash ** (i + 1)
+    sum_num_msgs := my_num_msgs
+    for all p in P do
+        sum_num_msgs := sum_num_msgs + p.num_msgs
+
+    my_dc[] := array of sum_num_msgs finite field elements
+    otvk_hashes[] := array of my_num_msgs bitstrings
+    for j := 0 to my_num_msgs do
+        otvk_hashes[j] := hash("OTVK" || my_otvks[j])
+        for i := 0 to sum_num_msgs - 1 do
+            my_dc[i] := otvk_hashes[j] ** (i + 1)
 
     for all p in P do
-        for i := 0 to |P| do
-            my_dc[i] := my_dc[i] (+) p.prg_dcexp.get_field_element()
+        for i := 0 to sum_num_msgs - 1 do
+            my_dc[i] := my_dc[i] (+) (sgn(my_id - p.id) (*) p.prg_dcexp.get_field_element())
 
-    broadcast "DCEXP" || my_dc[0] || ... || my_dc[|P|]
-    receive "DCEXP" || p.dc[0] || ... || p.dc[|P|] from all p in P
+    broadcast "DCEXP" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+    receive "DCEXP" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
         missing P_exclude
 
     if P_exclude != {} then
         continue
 
     dc_combined[] := my_dc[]
-    for p in P do
-        for i := 0 to |P| do
-            dc_combined[i] := dc_combined[i] (+) (sgn(my_id - p.id) (*) p.dc[i])
+    for all p in P
+        for i := 0 to sum_num_msgs - 1 do
+            dc_combined[i] := dc_combined[i] (+) p.dc[i]
 
     solve the equation system
-        "for all 0 <= i <= |P|,
-         dc_combined[i] = (sum)(j := 0 to |P|, roots[j] ** (i + 1))"
+        "for all 0 <= i < sum_num_msgs ,
+         dc_combined[i] = (sum)(j := 0 to sum_num_msgs - 1, roots[j] ** (i + 1))"
          for the array roots[]
 
     otvk_hashes[] := sort(roots[])
 
-    slot := undef
-    if there is exactly one i with otvk_hashes[i] = otvk_hash then  // implement in constant time
-        slot := i
+    // Run an ordinary DC-net with slot reservations
+    my_msgs[] := fresh_msgs()
+    for j := 0 to my_num_msgs do
+        my_sigs[] := sign(otsk, my_msgs[])
 
-    // Run a ordinary DC-net with slot reservations
-    msg := fresh_msg()
-    sig := sign(otsk, msg)
+    slot_size := |my_sigs[0]| + |my_msgs[0]|
+    padding_size := security_level_in_bits - (slot_size * sum_num_msgs * 8)
 
-    slot_size := |sig| + |msg|
+    slots[] := array of my_num_msg integers, initialized with undef
+    for j := 0 to my_num_msgs do
+        slots[j] := undef
+        if there is exactly one i with otvk_hashes[i] = otvk_hash[j] then  // constant time in i
+            slots[j] := i
 
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
-    if slot != undef then
-        my_dc[slot] := sig || msg  // implement in constant time
+    for j := 0 to my_num_msgs do
+        if slots[j] != undef then
+            my_dc[slots[j]] := my_sigs[j] || my_msgs[j]  // contant time in slots[j]
 
     for all p in P do
-        for i := 0 to |P| do
+        for i := 0 to sum_num_msgs do
             my_dc[i] := my_dc[i] ^ p.prg_dcsimple.get_bytes(slot_size)
         if padding_size > 0 then
             my_padding := my_padding ^ p.prg_dcsimple.get_bytes(slot_size)
@@ -177,13 +192,15 @@ loop
         (my_next_kesk, my_next_kepk) := new_sig_keypair()
         // FIXME sign the kepk with the long-term key
 
-        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[|P|] || my_padding
-        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[|P|] || p.padding from all p in P
+        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1] || my_padding
+        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1] || p.padding
+            from all p in P
             where validate_kepk(p.next_kepk)
             missing P_exclude
     else
-        broadcast "DC" || my_dc[0] || ... || my_dc[|P|] || my_padding
-        receive "DC" || p.dc[0] || ... || p.dc[|P|] || p.padding from all p in P
+        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1] || my_padding
+        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] || p.padding
+            from all p in P
             missing P_exclude
 
     if P_exclude != {} then
@@ -191,16 +208,16 @@ loop
 
     dc_combined[] := my_dc[]
     for p in P do
-        for i := 0 to |P| do
+        for i := 0 to sum_num_msgs do
             dc_combined[i] := dc_combined[i] ^ p.dc[i]
 
     // Check signatures
-    msgs[] := array of |P| messages
+    msgs[] := array of sum_num_msgs messages
 
     found := false
-    for i := 0 to |P| do
+    for i := 0 to sum_num_msgs do
         sigi || msgs[i] := dc_combined[i]
-        otvki := verify_recover(sigi, msg[i])
+        otvki := verify_recover(sigi, msgs[i])
         if not otvki then
             continue
         if hash("OTVK", otvki) != otvk_hashes[i] then
@@ -208,8 +225,9 @@ loop
 
     sort(msgs[])
 
-    if msg is not a value in msgs[] then  // implement in constant time
-        fail "This is probably a bug."
+    for all j := 0 to my_num_msgs do
+        if there is no index i such that my_msgs[j] = msgs[i] then  // constant time in i
+            fail "This is probably a bug."
 
     // Confirmation
     my_confirmation := validate_and_confirm(msgs[])
