@@ -187,7 +187,7 @@ loop
         if padding_size > 0 then
             my_padding := my_padding ^ p.prg_dcsimple.get_bytes(slot_size)
 
-    if (my_next_kesk, my_next_kepk) = (undef, undef) then
+    if (my_next_kesk, my_next_kepk) = (undef, undef) and |P| > 1 then
         // Key exchange
         (my_next_kesk, my_next_kepk) := new_sig_keypair()
         // FIXME sign the kepk with the long-term key
