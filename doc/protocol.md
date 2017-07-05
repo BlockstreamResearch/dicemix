@@ -179,7 +179,7 @@ loop
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
     for j := 0 to my_num_msgs do
         if slots[j] != undef then
-            my_dc[slots[j]] := my_sigs[j] || my_msgs[j]  // contant time in slots[j]
+            my_dc[slots[j]] := my_sigs[j] || my_msgs[j]  // constant time in slots[j] and my_msgs[j]
 
     for all p in P do
         for i := 0 to sum_num_msgs do
@@ -223,10 +223,8 @@ loop
         if hash("OTVK", otvki) != otvk_hashes[i] then
             continue
 
-    sort(msgs[])
-
     for all j := 0 to my_num_msgs do
-        if there is no index i such that my_msgs[j] = msgs[i] then  // constant time in i
+        if my_msgs[j] != msgs[slots[j]] then  // constant time in slots[j] and in msgs[slots[j]]
             fail "This is probably a bug."
 
     // Confirmation
