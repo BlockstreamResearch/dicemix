@@ -87,7 +87,7 @@ loop
 
             for all p in P do
                 replay all protocol messages of p using p.kesk,  // the protocol is deterministic
-                and set p.otvk_hashes[] to p's otvk_hashes[] variable on the way
+                and set p.otvk_hashes[] to peer p's my_otvk_hashes[] variable on the way
                 if p has sent an incorrect message then
                     P := P \ {p}
 
@@ -139,11 +139,11 @@ loop
         sum_num_msgs := sum_num_msgs + p.num_msgs
 
     my_dc[] := array of sum_num_msgs finite field elements
-    otvk_hashes[] := array of my_num_msgs bitstrings
+    my_otvk_hashes[] := array of my_num_msgs bitstrings
     for j := 0 to my_num_msgs do
-        otvk_hashes[j] := hash_otvk(my_otvks[j])
+        my_otvk_hashes[j] := hash_otvk(my_otvks[j])
         for i := 0 to sum_num_msgs - 1 do
-            my_dc[i] := otvk_hashes[j] ** (i + 1)
+            my_dc[i] := my_otvk_hashes[j] ** (i + 1)
 
     for all p in P do
         for i := 0 to sum_num_msgs - 1 do
@@ -166,7 +166,7 @@ loop
          dc_combined[i] = (sum)(j := 0 to sum_num_msgs - 1, roots[j] ** (i + 1))"
          for the array roots[]
 
-    otvk_hashes[] := sort(roots[])
+    all_otvk_hashes[] := sort(roots[])
 
     // Run an ordinary DC-net with slot reservations
     my_msgs[] := fresh_msgs()
@@ -179,7 +179,8 @@ loop
     slots[] := array of my_num_msg integers, initialized with undef
     for j := 0 to my_num_msgs do
         slots[j] := undef
-        if there is exactly one i with otvk_hashes[i] = otvk_hash[j] then  // constant time in i
+        if there is exactly one i
+        with all_otvk_hashes[i] = my_otvk_hashes[j] then  // constant time in i
             slots[j] := i
 
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
@@ -226,7 +227,7 @@ loop
         otvki := verify_recover(sigi, msgs[i])
         if not otvki then
             continue
-        if hash_otvk(otvki) != otvk_hashes[i] then
+        if hash_otvk(otvki) != all_otvk_hashes[i] then
             continue
 
     for all j := 0 to my_num_msgs do
