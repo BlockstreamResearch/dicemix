@@ -83,10 +83,11 @@ loop
 
             P := P \ P_missing
 
-            // Given p.kesk, we can replay peer p's entire protocol execution, because the protocol
-            // is deterministic except for the input messages to be mixed, which we can recover
-            // from the DC(KE) round. We exclude peers who have sent unexpected protocol messages.
+            // Exclude peers who have sent unexpected protocol messages
             for all p in P do
+                // Given p.kesk, we can replay peer p's entire protocol execution, because the
+                // protocol execution is deterministic except for the input messages to be mixed,
+                // which we can recover from the DC(KE) round.
                 replay peer p's expected protocol messages of the previous run by deriving them
                 from p.kesk and recovering peer p's purported input messages,
                 and set p.otvk_hashes[] to peer p's my_otvk_hashes[] variable on the way
@@ -94,13 +95,7 @@ loop
                 if p has sent an unexpected message then
                     P := P \ {p}
 
-            // If there is a collision in a OTVK hash but all involved peers have sent expected
-            // messages, then all these peers are malicious with overwhelming probability: If one
-            // peer was honest, then the other peers involved in the collision could not have
-            // derived the expected OTVK in the DC(KE) previous round. They could not have copied
-            // the honest peer's OTVK either, because the derivation of OTVK depends on the peer
-            // ID and so the copied OTVK would be unexpeted. Consequently we exclude the peers who
-            // are involved in the collision.
+            // Exclude peers who are involved in a slot collision, i.e., an OTVK hash collision
             for all (p1, p2) in P^2 such that
             there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
                 P_exclude := P_exclude U {p1, p2}
@@ -240,7 +235,7 @@ loop
 
     for all j := 0 to my_num_msgs do
         if my_msgs[j] != msgs[slots[j]] then  // constant time in slots[j] and in msgs[slots[j]]
-            fail "This is probably a bug."
+            fail "One of my own messages is missing."
 
     // Confirmation
     my_confirmation := validate_and_confirm(msgs[])
@@ -262,3 +257,47 @@ loop
 
     return successfully
 ```
+
+### Security
+
+#### Termination
+For termination, we assume that the broadcast mechanism is honest, i.e., it deliver messages
+correctly, and does not equivocate.
+
+The honest peers, who are assumed to receive the same messages, hold by construction the same state
+in their consensus-critical public variables and take the same consensus-critical control flow
+decisions, unless an honest peer fails with "One of my own messages in missing". This failure
+happens only with negligible probability for an honest peer, because this requires the attacker to
+forge a signature under the OTVK of the honest peer.
+
+By correctness of the protocol, a protocol run terminates if every peer sends expected messages and
+there is no OTVK hash collision (and thus no slot collision). Consequently we can distinguish two
+cases if the protocol fails.
+  1. *There is a peer who has failed to send an expected message at least once.*
+
+  The honest peers exclude this peer by construction.
+
+  2. *There is an OTVK hash collision but no peer involved in the OTVK hash collision has failed to
+  send an expected message.*
+
+  We show that then all peers involved in the OTVK hash collision are malicious with overwhelming
+  probability.
+
+  First, if only one peer is involved in the OTVK hash collision (i.e., the peer sends the same
+  OTVK hash for multiple slot reservations), then this peer is obviously malicious with
+  overwhelming probaility.
+
+  Second, we consider the case that multiple peers are involved in an OTVK hash collision. If one
+  peer was honest, then the other peers involved in the collision could have derived the expected
+  OTVK of the honest user in the DC(KE) round of the previous run only with negligible probability;
+  observe that they have copied the honest peer's OTVK either, because the derivation of the OTVK
+  depends on the peer ID and so the copied OTVK would be expected only with negligible probability.
+
+  Thus all peers involved in the OTVK hash collision are malicious with overwhelming probability,
+  and the honest peers exclude at least one such malicious peer.
+
+In both cases, the honest peers exclude at least one one disruptive, i.e., malicious or offline,
+peer. Since all honest peers exclude the same disruptive peers, they all start the next run in the
+same consensus-critical state. At some point, only honest peers will remain in the protocol
+execution and the either protocol succeeds or fails expectly (in the case that only one peer
+remains).
