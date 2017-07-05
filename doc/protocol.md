@@ -24,8 +24,13 @@ We need a non-interactive key exchange protocol secure in the CRS model.
  * `shared_secret(kesk, kepk, my_id, their_id, tweak)` derives the shared secret between party
  `my_id` with secret key `kesk` and `their_id` with public key `kepk`, using the tweak `tweak`
 
-#### Hash Function
+#### Hash Functions
  * `hash` is a cryptographic hash function (modeled as a random oracle).
+ * `hash_otvk` is a cryptographic hash function. If its output size is b bits, then the probability
+ that a protocol run fails with an honest user being excluded is `n/2**b`, where `k` is the number
+ of messages to be mixed. Values of `b` in the range of 64 are perfectly sufficient; note that the
+ probability of an unexpected connection failure or hardware failure, which has the same
+ consequences, is certainly higher.
 
 ## Protocol
 
@@ -81,15 +86,16 @@ loop
             P := P \ P_missing
 
             for all p in P do
-                replay all protocol messages of p using p.kesk
-                // TODO Expand that part
+                replay all protocol messages of p using p.kesk,  // the protocol is deterministic
+                and set p.otvk_hashes[] to p's otvk_hashes[] variable on the way
                 if p has sent an incorrect message then
                     P := P \ {p}
 
             if there is p in P with p.kepk = my_kepk then
                 fail "No honest peers left."
 
-            for all (p1, p2) in P^2 with p1 != p2 and p1.kepk = p2.kepk do
+            for all (p1, p2) in P^2 such that
+            there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
                 P := P \ {p1, p2}
 
             // Rotate keys
@@ -135,7 +141,7 @@ loop
     my_dc[] := array of sum_num_msgs finite field elements
     otvk_hashes[] := array of my_num_msgs bitstrings
     for j := 0 to my_num_msgs do
-        otvk_hashes[j] := hash("OTVK" || my_otvks[j])
+        otvk_hashes[j] := hash_otvk(my_otvks[j])
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := otvk_hashes[j] ** (i + 1)
 
@@ -220,7 +226,7 @@ loop
         otvki := verify_recover(sigi, msgs[i])
         if not otvki then
             continue
-        if hash("OTVK", otvki) != otvk_hashes[i] then
+        if hash_otvk(otvki) != otvk_hashes[i] then
             continue
 
     for all j := 0 to my_num_msgs do
