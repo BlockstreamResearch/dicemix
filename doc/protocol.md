@@ -224,7 +224,6 @@ loop
     // Check signatures
     msgs[] := array of sum_num_msgs messages
 
-    found := false
     for i := 0 to sum_num_msgs do
         sigi || msgs[i] := dc_combined[i]
         otvki := verify_recover(sigi, msgs[i])
