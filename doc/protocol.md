@@ -68,16 +68,14 @@ loop
         (my_kesk, my_kepk) := new_sig_keypair()
 
         // FIXME sign the kepk with the long-term key
-        broadcast "KE" || my_kepk
-        receive "KE" || p.kepk from all p in P
+        broadcast "KEPK" || my_kepk
+        receive "KEPK" || p.kepk from all p in P
             where validate_kepk(p.kepk)
             missing P_missing
 
         P := P \ P_missing
     else
-        if P_exclude != {} then
-            P := P \ P_exclude
-        else
+        if P_exclude = {} then
             // Publish ephemeral secret and determine malicious peers
             broadcast "KESK" || my_kesk
             receive "KESK" || p.kesk from all p in P
@@ -93,15 +91,16 @@ loop
 
             for all (p1, p2) in P^2 such that
             there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
-                P := P \ {p1, p2}
+                P_exclude := P_exclude U {p1, p2}
 
             // Rotate keys
             (my_kesk, my_kepk) := (my_next_kesk, my_next_kepk)
             (my_next_kesk, my_next_kepk) := (undef, undef)
 
+        P := P \ P_exclude
+
     if |P| = 0 then
         fail "No peers left."
-        break
 
     P_exclude := {}
 
