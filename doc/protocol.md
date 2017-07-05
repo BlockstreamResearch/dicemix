@@ -91,9 +91,6 @@ loop
                 if p has sent an incorrect message then
                     P := P \ {p}
 
-            if there is p in P with p.kepk = my_kepk then
-                fail "No honest peers left."
-
             for all (p1, p2) in P^2 such that
             there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
                 P := P \ {p1, p2}
@@ -130,7 +127,7 @@ loop
     otsks[] := array of my_num_msgs OTSKs
     my_otvks[] := array of my_num_msgs OTVKs
     for j := 0 to my_num_msgs do
-        otsk_seeds[j] := hash("OTSK_SEED" || sid_hash || j || my_kesk)
+        otsk_seeds[j] := hash("OTSK_SEED" || sid_hash || j || my_id || my_kesk)
         (otsks[j], my_otvks[j]) := new_ke_keypair(otsk_seeds[j])
 
     // Run a DC-net with exponential encoding
