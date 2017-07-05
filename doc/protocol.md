@@ -83,12 +83,24 @@ loop
 
             P := P \ P_missing
 
+            // Given p.kesk, we can replay peer p's entire protocol execution, because the protocol
+            // is deterministic except for the input messages to be mixed, which we can recover
+            // from the DC(KE) round. We exclude peers who have sent unexpected protocol messages.
             for all p in P do
-                replay all protocol messages of p using p.kesk,  // the protocol is deterministic
+                replay peer p's expected protocol messages of the previous run by deriving them
+                from p.kesk and recovering peer p's purported input messages,
                 and set p.otvk_hashes[] to peer p's my_otvk_hashes[] variable on the way
-                if p has sent an incorrect message then
+
+                if p has sent an unexpected message then
                     P := P \ {p}
 
+            // If there is a collision in a OTVK hash but all involved peers have sent expected
+            // messages, then all these peers are malicious with overwhelming probability: If one
+            // peer was honest, then the other peers involved in the collision could not have
+            // derived the expected OTVK in the DC(KE) previous round. They could not have copied
+            // the honest peer's OTVK either, because the derivation of OTVK depends on the peer
+            // ID and so the copied OTVK would be unexpeted. Consequently we exclude the peers who
+            // are involved in the collision.
             for all (p1, p2) in P^2 such that
             there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
                 P_exclude := P_exclude U {p1, p2}
