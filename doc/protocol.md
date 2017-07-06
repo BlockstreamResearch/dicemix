@@ -1,4 +1,4 @@
-# Dicemix Light
+# DiceMix Light
 
 ## Primitives
 
@@ -254,9 +254,12 @@ loop
 
 ### Security
 
+#### Sender Anonymity
+The security argument is similar to the one presented for the [original DiceMix protocol][dicemix].
+
 #### Termination
-For termination, we assume that the broadcast mechanism is honest, i.e., it deliver messages
-correctly, and does not equivocate.
+For termination, we assume that the broadcast mechanism is honest, i.e., it delivers messages
+correctly and it does not equivocate.
 
 The honest peers, who are assumed to receive the same messages, hold by construction the same state
 in their consensus-critical public variables and take the same consensus-critical control flow
@@ -290,8 +293,10 @@ cases if the protocol fails.
   Thus all peers involved in the OTVK hash collision are malicious with overwhelming probability,
   and the honest peers exclude at least one such malicious peer.
 
-In both cases, the honest peers exclude at least one one disruptive, i.e., malicious or offline,
-peer. Since all honest peers exclude the same disruptive peers, they all start the next run in the
-same consensus-critical state. At some point, only honest peers will remain in the protocol
-execution and the either protocol succeeds or fails expectly (in the case that only one peer
-remains).
+In both cases, the honest peers exclude at least one disruptive, i.e., malicious or offline, peer.
+Since all honest peers exclude the same disruptive peers, they all start the next run in the same
+consensus-critical state. At some point, only honest peers will remain in the protocol execution
+and the either protocol succeeds or fails expectly (in the case that only one peer remains).
+
+[dicemix]: https://www.internetsociety.org/doc/p2p-mixing-and-unlinkable-bitcoin-transactions
+  "P2P Mixing and Unlinkable Bitcoin Transactions. Tim Ruffing, Pedro Moreno-Sanchez, Aniket Kate. Network and Distributed System Security Symposium 2017 (NDSS'17)"
