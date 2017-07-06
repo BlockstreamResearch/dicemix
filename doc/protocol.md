@@ -177,7 +177,6 @@ loop
         my_sigs[] := sign(otsk, my_msgs[])
 
     slot_size := |my_sigs[0]| + |my_msgs[0]|
-    padding_size := security_level_in_bits - (slot_size * sum_num_msgs * 8)
 
     slots[] := array of my_num_msg integers, initialized with undef
     for j := 0 to my_num_msgs do
@@ -194,23 +193,19 @@ loop
     for all p in P do
         for i := 0 to sum_num_msgs do
             my_dc[i] := my_dc[i] ^ p.prg_dcsimple.get_bytes(slot_size)
-        if padding_size > 0 then
-            my_padding := my_padding ^ p.prg_dcsimple.get_bytes(slot_size)
 
     if (my_next_kesk, my_next_kepk) = (undef, undef) and |P| > 1 then
         // Key exchange
         (my_next_kesk, my_next_kepk) := new_sig_keypair()
         // FIXME sign the kepk with the long-term key
 
-        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1] || my_padding
-        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1] || p.padding
-            from all p in P
+        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
             where validate_kepk(p.next_kepk)
             missing P_exclude
     else
-        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1] || my_padding
-        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] || p.padding
-            from all p in P
+        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
             missing P_exclude
 
     if P_exclude != {} then
