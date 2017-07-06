@@ -1,6 +1,48 @@
 # DiceMix Light
 
-## Primitives
+DiceMix Light is a cryptographic P2P mixing protocol. It enables a group of mutually distrusting
+peers, each of them holding an input message of identical size, to agree on the set of their input
+messages anonymously, i.e., without revealing the which peer sends which input message. The
+protocol provides this functionality without the help of a trusted proxy, and succeeds even in the
+presence of malicious peers trying to prevent the honest peers from completing the protocol.
+
+DiceMix Light is inspired by [DiceMix][dicemix], an P2P mixing protocol optimized for a minimal
+number of communications rounds and require 4+2f communication rounds in the presence of f
+disrupting peers. DiceMix Light needs 4+3f communication rounds but requires far less computation
+and is simpler. We refer to the [DiceMix paper][dicemix] for background on P2P mixing protocols
+and detailed definitions.
+
+## Communication Model
+Peers are connected via a broadcast mechanism, e.g., a server receiving protocol messages from each
+peer and forwarding them to all other peers. The broadcast mechanism is also responsible for
+notifiying the other peers when a peer has failed to send a protocol messages in time.
+
+## Security Goals
+A P2P mixing protocol provides two security guarantees.
+
+ * Sender Anonymity
+
+ An attacker controlling the network (including the broadcast mechanism) and some peers is not able
+ to tell which input message belongs to which honest peer. In more detail, the anonymity set of an
+ individual honest peer is the set of all honest peers who have not been excluded for being
+ offline.
+
+ * Termination
+
+ If the network (including the broadcast mechanism) is reliable and there are at least two honest
+ peers, the protocol eventually terminates successfully for every honest peer.
+
+
+## Protocol
+
+### Authentication
+All protocol messages are assumed to be authenticated. Unauthenticated messages must be ignored.
+We note that authentication is only required for termination but not for anonymity.
+
+### Setup Assumptions
+TODO: Write
+
+### Building Blocks
 
 #### Pseudorandom Generator
  * `new_prg(seed)` initializes a PRG with seed `seed` and tweak `tweak`.
@@ -32,8 +74,6 @@ We need a non-interactive key exchange protocol secure in the CRS model.
  probability of an unexpected connection failure or hardware failure, which has the same
  consequences, is certainly higher.
 
-## Protocol
-
 ### Pseudocode Conventions
  * The (non-excluded) peers are stored in set `P`.
  * `sgn(x)` is the signum function.
@@ -43,13 +83,6 @@ We need a non-interactive key exchange protocol secure in the CRS model.
  the finite field.
  * String constants such as `"KE"` are symbolic, their actual representation as bytes is
  defined below.
-
-### Setup Assumptions
-TODO: Write
-
-### Authentication
-All protocol messages are assumed to be authenticated. Unauthenticated messages must be ignored.
-We note that authentication is only required for termination but not for anonymity.
 
 ### Pseudocode
 ```
