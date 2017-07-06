@@ -17,6 +17,9 @@ Peers are connected via a broadcast mechanism, e.g., a server receiving protocol
 peer and forwarding them to all other peers. The broadcast mechanism is also responsible for
 notifiying the other peers when a peer has failed to send a protocol messages in time.
 
+The communication between peers and the broadcast mechanism must be authenticated in both
+directions to prevent a network attacker from interfering with the protocol.
+
 ## Security Goals
 A P2P mixing protocol provides two security guarantees.
 
@@ -34,10 +37,6 @@ A P2P mixing protocol provides two security guarantees.
 
 
 ## Protocol
-
-### Authentication
-All protocol messages are assumed to be authenticated. Unauthenticated messages must be ignored.
-We note that authentication is only required for termination but not for anonymity.
 
 ### Setup Assumptions
 TODO: Write
