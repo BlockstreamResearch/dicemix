@@ -48,12 +48,11 @@ TODO: Write
  * randomness can be obtained using calls such as `prg.get_bytes(n)` or `prg.get_field_element()`.
 
 #### Deterministic One-time Signatures
-We need a key-recoverable signature scheme which is weakly unforgeable under one-time chosen
-message attacks.
+We need a signature scheme which is weakly unforgeable under one-time chosen message attacks.
  * `(otsk, otvk) := new_sig_keypair(rand)` generates a signing key and verification key.
  * `sign(otsk, msg)` creates a deterministic signature of message `msg` with signing key `otsk`.
- * `verify_recover(sig, msg)` outputs the verification key if `sig` is a valid signature on
- `msg` and nothing otherwise.
+ * `verify(otvk, sig, msg)` outputs `true` iff `sig` is a valid signature on `msg` under
+ verification key `otvk`.
 
 #### Non-interactive Key Exchange
 We need a non-interactive key exchange protocol secure in the CRS model.
@@ -208,7 +207,7 @@ loop
     for j := 0 to my_num_msgs do
         my_sigs[] := sign(otsk, my_msgs[])
 
-    slot_size := |my_sigs[0]| + |my_msgs[0]|
+    slot_size := |my_otvks[0]| + |my_sigs[0]| + |my_msgs[0]|
 
     slots[] := array of my_num_msg integers, initialized with undef
     for j := 0 to my_num_msgs do
@@ -220,7 +219,7 @@ loop
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
     for j := 0 to my_num_msgs do
         if slots[j] != undef then
-            my_dc[slots[j]] := my_sigs[j] || my_msgs[j]  // constant time in slots[j] and my_msgs[j]
+            my_dc[slots[j]] := my_otvks[j] || my_sigs[j] || my_msgs[j]  // constant time in slots[j]
 
     for all p in P do
         for i := 0 to sum_num_msgs do
@@ -252,9 +251,8 @@ loop
     msgs[] := array of sum_num_msgs messages
 
     for i := 0 to sum_num_msgs do
-        sigi || msgs[i] := dc_combined[i]
-        otvki := verify_recover(sigi, msgs[i])
-        if not otvki then
+        otvki || sigi || msgs[i] := dc_combined[i]
+        if not verify(otvki, sigi, msgs[i]) then
             continue
         if hash_otvk(otvki) != all_otvk_hashes[i] then
             continue
