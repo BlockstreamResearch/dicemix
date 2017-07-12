@@ -327,3 +327,17 @@ and the either protocol succeeds or fails expectly (in the case that only one pe
 
 [dicemix]: https://www.internetsociety.org/doc/p2p-mixing-and-unlinkable-bitcoin-transactions
   "P2P Mixing and Unlinkable Bitcoin Transactions. Tim Ruffing, Pedro Moreno-Sanchez, Aniket Kate. Network and Distributed System Security Symposium 2017 (NDSS'17)"
+
+### Possible Improvements
+
+#### Smaller Field
+To reduce the field size, it is possible to split the OTVK hash in two halves, and send both halves
+in different exponetial DC-nets. Then only one of the DC-nets is used for slot reservation and the
+other one is just used to authenticate the OTVK. Peers must abort if their second half is not
+present in the second DC-net, but it is not necessary to bind the two halves together, because the
+number of combinations of left and right halves that the attacker can exploit is not too large.
+Still the loss of security is quadratic in the number of mixed messages.
+
+This can speed up the computation, because polynomial factorization in a 64-bit field is faster
+than in a 128 bit field by more than a factor of 2 (at least in FLINT). Moreover, it is possible to
+handle both DC-nets in parallel.
