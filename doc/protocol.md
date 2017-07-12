@@ -66,11 +66,7 @@ We need a non-interactive key exchange protocol secure in the CRS model.
 
 #### Hash Functions
  * `hash` is a cryptographic hash function (modeled as a random oracle).
- * `hash_otvk` is a cryptographic hash function. If its output size is b bits, then the probability
- that a protocol run fails with an honest user being excluded is `n/2**b`, where `k` is the number
- of messages to be mixed. Values of `b` in the range of 64 are perfectly sufficient; note that the
- probability of an unexpected connection failure or hardware failure, which has the same
- consequences, is certainly higher.
+ * `hash_otvk` is a second-preimage resistant cryptographic hash function.
 
 ### Pseudocode Conventions
  * The (non-excluded) peers are stored in set `P`.
@@ -295,7 +291,8 @@ The honest peers, who are assumed to receive the same messages, hold by construc
 in their consensus-critical public variables and take the same consensus-critical control flow
 decisions, unless an honest peer fails with "One of my own messages in missing". This failure
 happens only with negligible probability for an honest peer, because this requires the attacker to
-forge a signature under the OTVK of the honest peer.
+forge a signature under the OTVK of the honest peer or to find a second preimage of the OTVK hash
+of the honest peer.
 
 By correctness of the protocol, a protocol run terminates if every peer sends expected messages and
 there is no OTVK hash collision (and thus no slot collision). Consequently we can distinguish two
