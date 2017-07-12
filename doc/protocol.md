@@ -13,9 +13,10 @@ and is simpler. We refer to the [DiceMix paper][dicemix] for background on P2P m
 and detailed definitions.
 
 ## Communication Model
-Peers are connected via a broadcast mechanism, e.g., a server receiving protocol messages from each
-peer and forwarding them to all other peers. The broadcast mechanism is also responsible for
-notifiying the other peers when a peer has failed to send a protocol messages in time.
+Peers are connected via a terminating reliable broadcast mechanism, e.g., a server receiving
+protocol messages from each peer and forwarding them to all other peers. The broadcast mechanism is
+responsible for ensuring that the same protocol message is forwarded to all other peers and for
+notifiying the other peers when a peer has failed to send a protocol message in time.
 
 The communication between peers and the broadcast mechanism must be authenticated in both
 directions to prevent a network attacker from interfering with the protocol.
@@ -34,7 +35,6 @@ A P2P mixing protocol provides two security guarantees.
 
  If the network (including the broadcast mechanism) is reliable and there are at least two honest
  peers, the protocol eventually terminates successfully for every honest peer.
-
 
 ## Protocol
 
@@ -205,7 +205,7 @@ loop
     // Run an ordinary DC-net with slot reservations
     my_msgs[] := fresh_msgs()
     for j := 0 to my_num_msgs do
-        my_sigs[] := sign(otsk, my_msgs[])
+        my_sigs[j] := sign(otsk, my_msgs[])
 
     slot_size := |my_otvks[0]| + |my_sigs[0]| + |my_msgs[0]|
 
@@ -253,9 +253,9 @@ loop
     for i := 0 to sum_num_msgs do
         otvki || sigi || msgs[i] := dc_combined[i]
         if not verify(otvki, sigi, msgs[i]) then
-            continue
+            continue while
         if hash_otvk(otvki) != all_otvk_hashes[i] then
-            continue
+            continue while
 
     for all j := 0 to my_num_msgs do
         if my_msgs[j] != msgs[slots[j]] then  // constant time in slots[j] and in msgs[slots[j]]
