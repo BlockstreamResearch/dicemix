@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
+use std::ops::{Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
 
 // The field size.
 const P: u128 = (1 << 127) - 1;
@@ -70,9 +70,16 @@ impl From<Fp> for u128 {
     }
 }
 
-impl Add for Fp {
+impl Neg for Fp {
     type Output = Self;
     #[inline]
+    fn neg(self) -> Self {
+        Fp(P - self.0)
+    }
+}
+
+impl Add for Fp {
+    type Output = Self;
     fn add(self, other: Self) -> Self {
         Fp((self.0 + other.0).reduce_once_assert())
     }
@@ -89,7 +96,7 @@ impl Sub for Fp {
     type Output = Self;
     #[inline]
     fn sub(self, other: Self) -> Self {
-        Fp((self.0 + P - other.0).reduce_once_assert())
+        self + (-other)
     }
 }
 
@@ -138,6 +145,12 @@ impl Eq for Fp {}
 
 mod tests {
     use super::*;
+
+    #[test]
+    fn neg() {
+        assert_eq!(-Fp(0), Fp(0));
+        assert_eq!(-Fp(5), Fp(P - 5));
+    }
 
     #[test]
     fn add() {
