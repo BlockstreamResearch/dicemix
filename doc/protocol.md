@@ -163,7 +163,7 @@ loop
 
     my_msg_hashes[] := array of my_num_msgs finite field elements
     my_dc[] := array of sum_num_msgs finite field elements, all initialized with 0
-    for j := 0 to my_num_msgs do
+    for j := 0 to my_num_msgs - 1 do
         my_msg_hashes[j] := hash_short(my_msgs[j])
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] (+) (my_msg_hashes[j] ** (i + 1))
@@ -196,7 +196,7 @@ loop
 
     slots[] := array of my_num_msg integers, initialized with undef
     my_ok := true
-    for j := 0 to my_num_msgs do
+    for j := 0 to my_num_msgs - 1 do
         if there is exactly one i
         with all_msg_hashes[i] = my_msg_hashes[j] then  // constant time in i
             slots[j] := i
@@ -206,15 +206,15 @@ loop
     if not my_ok then
         // Even though the run will be aborted (because we send my_ok = false), transmit the
         // message in a deterministic slot. This enables the peers to recompute our commitment.
-        for j := 0 to my_num_msgs do
+        for j := 0 to my_num_msgs - 1 do
             slots[j] := j
 
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
-    for j := 0 to my_num_msgs do
+    for j := 0 to my_num_msgs - 1 do
         my_dc[slots[j]] := my_msgs[j]  // constant time in slots[j]
 
     for all p in P do
-        for i := 0 to sum_num_msgs do
+        for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] ^ p.prg_dcsimple.get_bytes(slot_size)
 
     if (my_next_kesk, my_next_kepk) = (undef, undef) and |P| > 1 then
@@ -237,23 +237,23 @@ loop
 
     // Resolve the DC-net
     msgs[] := my_dc[]
-    for p in P do
-        for i := 0 to sum_num_msgs do
+    for all p in P do
+        for i := 0 to sum_num_msgs - 1 do
             msgs[i] := msgs[i] ^ p.dc[i]
 
     // Verify that every peer agrees to proceed
     if not my_ok then
         continue
-    for p in P do
+    for all p in P do
         if not p.ok then
             continue while
 
     // Verify message hashes
-    for i := 0 to sum_num_msgs do
+    for i := 0 to sum_num_msgs - 1 do
         if hash_short(msgs[i]) != all_msg_hashes[i] then
             continue while
 
-    for all j := 0 to my_num_msgs do
+    for j := 0 to my_num_msgs - 1 do
         if my_msgs[j] != msgs[slots[j]] then  // constant time in slots[j] and in msgs[slots[j]]
             fail "One of my own messages is missing."
 
