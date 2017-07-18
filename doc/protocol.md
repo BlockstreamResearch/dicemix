@@ -47,13 +47,6 @@ TODO: Write
  * `new_prg(seed)` initializes a PRG with seed `seed` and tweak `tweak`.
  * randomness can be obtained using calls such as `prg.get_bytes(n)` or `prg.get_field_element()`.
 
-#### Deterministic One-time Signatures
-We need a signature scheme which is weakly unforgeable under one-time chosen message attacks.
- * `(otsk, otvk) := new_sig_keypair(rand)` generates a signing key and verification key.
- * `sign(otsk, msg)` creates a deterministic signature of message `msg` with signing key `otsk`.
- * `verify(otvk, sig, msg)` outputs `true` iff `sig` is a valid signature on `msg` under
- verification key `otvk`.
-
 #### Non-interactive Key Exchange
 We need a non-interactive key exchange protocol secure in the CRS model.
  * `(kesk, kepk) := new_ke_keypair(rand)` generates a secret key and a public key.
@@ -65,8 +58,10 @@ We need a non-interactive key exchange protocol secure in the CRS model.
  `my_id` with secret key `kesk` and `their_id` with public key `kepk`, using the tweak `tweak`
 
 #### Hash Functions
- * `hash` is a cryptographic hash function (modeled as a random oracle).
- * `hash_otvk` is a second-preimage resistant cryptographic hash function.
+ * `hash` is a cryptographic hash function with output length `2k`.
+ * `hash_short` is a cryptographic hash function with output length `k`.
+
+Both hash functions are modeled as random oracles.
 
 ### Pseudocode Conventions
  * The (non-excluded) peers are stored in set `P`.
@@ -112,19 +107,19 @@ loop
 
             // Exclude peers who have sent unexpected protocol messages
             for all p in P do
-                // Given p.kesk, we can replay peer p's entire protocol execution, because the
+                // Given p.seed, we can replay peer p's entire protocol execution, because the
                 // protocol execution is deterministic except for the input messages to be mixed,
                 // which we can recover from the DC(KE) round.
                 replay peer p's expected protocol messages of the previous run by deriving them
-                from p.kesk and recovering peer p's purported input messages,
-                and set p.otvk_hashes[] to peer p's my_otvk_hashes[] variable on the way
+                from p.seed and recovering peer p's purported input messages,
+                and set p.msg_hashes[] to peer p's my_msg_hashes[] variable on the way
 
                 if p has sent an unexpected message then
                     P := P \ {p}
 
-            // Exclude peers who are involved in a slot collision, i.e., an OTVK hash collision
+            // Exclude peers who are involved in a slot collision, i.e., a message hash collision
             for all (p1, p2) in P^2 such that
-            there is i and j with p1.otvk_hashes[i] = p2.otvk_hashes[j] and (p1 != p2 or i != j) do
+            there is i and j with p1.msg_hashes[i] = p2.msg_hashes[j] and (p1 != p2 or i != j) do
                 P_exclude := P_exclude U {p1, p2}
 
             // Rotate keys
@@ -155,32 +150,30 @@ loop
         p.seed_dcsimple := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DC")
         p.prg_dcsimple := new_prg(seed_dcsimple)
 
-    // Generate signature key pair
-    otsk_seeds[] := array of my_num_msgs bitstrings
-    otsks[] := array of my_num_msgs OTSKs
-    my_otvks[] := array of my_num_msgs OTVKs
-    for j := 0 to my_num_msgs do
-        otsk_seeds[j] := hash("OTSK_SEED" || sid_hash || j || my_id || my_kesk)
-        (otsks[j], my_otvks[j]) := new_ke_keypair(otsk_seeds[j])
+    // Commit on the messages
+    my_commit := hash("COMMIT" || my_kesk || sid_hash || my_id || j ||
+                      my_msgs[0] || ... || my_msgs[my_num_msgs - 1])
 
     // Run a DC-net with exponential encoding
+    my_msgs[] := fresh_msgs()
+    my_num_msgs := |my_msgs[]|
     sum_num_msgs := my_num_msgs
     for all p in P do
         sum_num_msgs := sum_num_msgs + p.num_msgs
 
-    my_dc[] := array of sum_num_msgs finite field elements
-    my_otvk_hashes[] := array of my_num_msgs bitstrings
+    my_msg_hashes[] := array of my_num_msgs finite field elements
+    my_dc[] := array of sum_num_msgs finite field elements, all initialized with 0
     for j := 0 to my_num_msgs do
-        my_otvk_hashes[j] := hash_otvk(my_otvks[j])
+        my_msg_hashes[j] := hash_short(my_msgs[j])
         for i := 0 to sum_num_msgs - 1 do
-            my_dc[i] := my_otvk_hashes[j] ** (i + 1)
+            my_dc[i] := my_dc[i] (+) (my_msg_hashes[j] ** (i + 1))
 
     for all p in P do
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] (+) (sgn(my_id - p.id) (*) p.prg_dcexp.get_field_element())
 
-    broadcast "DCEXP" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-    receive "DCEXP" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+    broadcast "DCEXP" || my_commit || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+    receive "DCEXP" || p.commit || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
         missing P_exclude
 
     if P_exclude != {} then
@@ -196,26 +189,29 @@ loop
          dc_combined[i] = (sum)(j := 0 to sum_num_msgs - 1, roots[j] ** (i + 1))"
          for the array roots[]
 
-    all_otvk_hashes[] := sort(roots[])
+    all_msg_hashes[] := sort(roots[])
 
     // Run an ordinary DC-net with slot reservations
-    my_msgs[] := fresh_msgs()
-    for j := 0 to my_num_msgs do
-        my_sigs[j] := sign(otsk, my_msgs[])
-
-    slot_size := |my_otvks[0]| + |my_sigs[0]| + |my_msgs[0]|
+    slot_size := |my_msgs[0]|
 
     slots[] := array of my_num_msg integers, initialized with undef
+    my_ok := true
     for j := 0 to my_num_msgs do
-        slots[j] := undef
         if there is exactly one i
-        with all_otvk_hashes[i] = my_otvk_hashes[j] then  // constant time in i
+        with all_msg_hashes[i] = my_msg_hashes[j] then  // constant time in i
             slots[j] := i
+        else
+            my_ok := false
+
+    if not my_ok then
+        // Even though the run will be aborted (because we send my_ok = false), transmit the
+        // message in a deterministic slot. This enables the peers to recompute our commitment.
+        for j := 0 to my_num_msgs do
+            slots[j] := j
 
     my_dc[] := array of |P| arrays of slot_size bytes, all initalized with 0
     for j := 0 to my_num_msgs do
-        if slots[j] != undef then
-            my_dc[slots[j]] := my_otvks[j] || my_sigs[j] || my_msgs[j]  // constant time in slots[j]
+        my_dc[slots[j]] := my_msgs[j]  // constant time in slots[j]
 
     for all p in P do
         for i := 0 to sum_num_msgs do
@@ -226,31 +222,35 @@ loop
         (my_next_kesk, my_next_kepk) := new_sig_keypair()
         // FIXME sign the kepk with the long-term key
 
-        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+        broadcast "DCKE" || my_ok || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DCKE" || p.ok || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1]
+        from all p in P
             where validate_kepk(p.next_kepk)
             missing P_exclude
     else
-        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+        broadcast "DC" || ok || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DC" || p.ok || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
             missing P_exclude
 
     if P_exclude != {} then
         continue
 
-    dc_combined[] := my_dc[]
+    // Resolve the DC-net
+    msgs[] := my_dc[]
     for p in P do
         for i := 0 to sum_num_msgs do
-            dc_combined[i] := dc_combined[i] ^ p.dc[i]
+            msgs[i] := msgs[i] ^ p.dc[i]
 
-    // Check signatures
-    msgs[] := array of sum_num_msgs messages
-
-    for i := 0 to sum_num_msgs do
-        otvki || sigi || msgs[i] := dc_combined[i]
-        if not verify(otvki, sigi, msgs[i]) then
+    // Verify that every peer agrees to proceed
+    if not my_ok then
+        continue
+    for p in P do
+        if not p.ok then
             continue while
-        if hash_otvk(otvki) != all_otvk_hashes[i] then
+
+    // Verify message hashes
+    for i := 0 to sum_num_msgs do
+        if hash_short(msgs[i]) != all_msg_hashes[i] then
             continue while
 
     for all j := 0 to my_num_msgs do
@@ -291,34 +291,34 @@ The honest peers, who are assumed to receive the same messages, hold by construc
 in their consensus-critical public variables and take the same consensus-critical control flow
 decisions, unless an honest peer fails with "One of my own messages in missing". This failure
 happens only with negligible probability for an honest peer, because this requires the attacker to
-forge a signature under the OTVK of the honest peer or to find a second preimage of the OTVK hash
-of the honest peer.
+find a second preimage of the message hash of the honest honest peer.
 
 By correctness of the protocol, a protocol run terminates if every peer sends expected messages and
-there is no OTVK hash collision (and thus no slot collision). Consequently we can distinguish two
-cases if the protocol fails.
+there is no message hash collision (and thus no slot collision). Consequently we can distinguish
+two cases if the protocol fails.
   1. *There is a peer who has failed to send an expected message at least once.*
 
   The honest peers exclude this peer by construction.
 
-  2. *There is an OTVK hash collision but no peer involved in the OTVK hash collision has failed to
-  send an expected message.*
+  2. *There is a message hash collision but no peer involved in the message hash collision has
+  failed to send an expected message.*
 
-  We show that then all peers involved in the OTVK hash collision are malicious with overwhelming
-  probability.
+  We show that then all peers involved in the message hash collision are malicious with
+  overwhelming probability.
 
-  First, if only one peer is involved in the OTVK hash collision (i.e., the peer sends the same
-  OTVK hash for multiple slot reservations), then this peer is obviously malicious with
+  First, if only one peer is involved in the message hash collision (i.e., the peer sends the same
+  message hash for multiple slot reservations), then this peer is obviously malicious with
   overwhelming probaility.
 
-  Second, we consider the case that multiple peers are involved in an OTVK hash collision. If one
+  Second, we consider the case that multiple peers are involved in a message hash collision. If one
   peer was honest, then the other peers involved in the collision could have derived the expected
-  OTVK of the honest user in the DC(KE) round of the previous run only with negligible probability;
-  observe that they have copied the honest peer's OTVK either, because the derivation of the OTVK
-  depends on the peer ID and so the copied OTVK would be expected only with negligible probability.
+  message of the honest user in the DC(KE) round of the previous run only with negligible
+  probability; observe that they cannot have copied the honest peer's message hash either, because
+  then their commitments would be expected only with negligible probability, as the commitments
+  include the peer ID.
 
-  Thus all peers involved in the OTVK hash collision are malicious with overwhelming probability,
-  and the honest peers exclude at least one such malicious peer.
+  Thus all peers involved in the message hash collision are malicious with overwhelming
+  probability, and the honest peers exclude at least one such malicious peer.
 
 In both cases, the honest peers exclude at least one disruptive, i.e., malicious or offline, peer.
 Since all honest peers exclude the same disruptive peers, they all start the next run in the same
@@ -331,9 +331,9 @@ and the either protocol succeeds or fails expectly (in the case that only one pe
 ### Possible Improvements
 
 #### Smaller Field
-To reduce the field size, it is possible to split the OTVK hash in two halves, and send both halves
-in different exponetial DC-nets. Then only one of the DC-nets is used for slot reservation and the
-other one is just used to authenticate the OTVK. Peers must abort if their second half is not
+To reduce the field size, it is possible to split the message hash in two halves, and send both halves
+in different exponential DC-nets. Then only one of the DC-nets is used for slot reservation and the
+other one is just used to verify integrity of the message. Peers must abort if their second half is not
 present in the second DC-net, but it is not necessary to bind the two halves together, because the
 number of combinations of left and right halves that the attacker can exploit is not too large.
 Still the loss of security is quadratic in the number of mixed messages.
