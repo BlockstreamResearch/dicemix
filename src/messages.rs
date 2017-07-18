@@ -5,13 +5,15 @@ use secp256k1::Signature;
 use std::io;
 use tokio_io::codec::{Encoder, Decoder};
 
+const MAGIC: [u8; 4] = [0x68, 0x1e, 0x58, 0x12];
+
 /// Network messages take the following form:
 ///
 /// | Field   | Length | Description                                                   |
 /// |---------|--------|---------------------------------------------------------------|
 /// | Magic   | 4      | Fixed magic bytes for identifying network messages            |
-/// | Header  | 1      | Message header                                                |
-/// | Payload | ...    | Message payload                                               |
+/// | header  | 1      | Message header                                                |
+/// | payload | ...    | Message payload                                               |
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Message {
@@ -37,7 +39,7 @@ impl Message {
             return Ok(None);
         }
         let (magic, buf) = buf.split_at(4);
-        if !magic.starts_with(&[0x68, 0x1e, 0x58, 0x12]) {
+        if magic[..4] != MAGIC {
             return Err(io::Error::new(io::ErrorKind::Other, "Wrong magic bytes"));
         }
         let (header, buf) = match try!(Header::from_bytes(buf)) {
@@ -57,7 +59,7 @@ impl Message {
         )));
     }
     fn to_bytes(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
-        buf.extend(vec![0x68, 0x1e, 0x58, 0x12]);
+        buf.extend(MAGIC.iter());
         self.header.to_bytes(buf)?;
         self.payload.to_bytes(buf, secp256k1)?;
         Ok(())
@@ -66,9 +68,9 @@ impl Message {
 
 /// Headers take the following form:
 ///
-/// | Field   | Length | Description                                                   |
-/// |---------|--------|---------------------------------------------------------------|
-/// | Version | 1      | Protocol version                                              |
+/// | Field            | Length | Description                                            |
+/// |------------------|--------|--------------------------------------------------------|
+/// | protocol_version | 1      | Protocol version                                       |
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 struct Header {
@@ -99,7 +101,8 @@ impl Header {
 /// | Field   | Length | Description                                                   |
 /// |---------|--------|---------------------------------------------------------------|
 /// | Variant | 1      | Determines which payload variant this is                      |
-/// | Variant | ...    | The actual variant                                            |
+/// |         |        |     0: KeyExchange                                            |
+/// | Payload | ...    | The actual payload                                            |
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Payload {
@@ -107,13 +110,13 @@ enum Payload {
     ///
     /// | Field      | Length | Description                                                        |
     /// |------------|--------|--------------------------------------------------------------------|
-    /// | Signature  | 64     | Compressed ECDSA signature over the following public key using the |
-    /// |            |        | long term  public key                                              |
-    /// | Public Key | 33     | Compressed ephemeral public key                                    |
+    /// | signature  | 64     | Compressed ECDSA signature over ke_pk key using the long term      |
+    /// |            |        | public key                                                         |
+    /// | ke_pk      | 33     | Compressed ephemeral public key                                    |
     ///
     KeyExchange {
         signature: Signature,
-        public_key: PublicKey,
+        ke_pk: PublicKey,
     },
 }
 
@@ -136,9 +139,9 @@ fn from_bytes_keyexchange<'a>(
             }
         }
     };
-    let (public_key, buf) = buf.split_at(33);
-    let public_key = {
-        match PublicKey::from_slice(secp256k1, public_key) {
+    let (ke_pk, buf) = buf.split_at(33);
+    let ke_pk = {
+        match PublicKey::from_slice(secp256k1, ke_pk) {
             Ok(pk) => pk,
             Err(_) => {
                 return Err(io::Error::new(
@@ -151,7 +154,7 @@ fn from_bytes_keyexchange<'a>(
     return Ok(Some((
         Payload::KeyExchange {
             signature: signature,
-            public_key: public_key,
+            ke_pk: ke_pk,
         },
         buf,
     )));
@@ -160,13 +163,13 @@ fn from_bytes_keyexchange<'a>(
 
 fn to_bytes_keyexchange(
     signature: &Signature,
-    public_key: &PublicKey,
+    ke_pk: &PublicKey,
     buf: &mut BytesMut,
     secp256k1: &Secp256k1,
 ) -> io::Result<()> {
     buf.extend(vec![0x00]);
     buf.extend(signature.serialize_compact(secp256k1).iter());
-    buf.extend(public_key.serialize_vec(secp256k1, true));
+    buf.extend(ke_pk.serialize_vec(secp256k1, true));
     Ok(())
 }
 
@@ -193,16 +196,14 @@ impl Payload {
     }
     fn to_bytes(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
         match self {
-            &Payload::KeyExchange {
-                signature,
-                public_key,
-            } => to_bytes_keyexchange(&signature, &public_key, buf, secp256k1),
+            &Payload::KeyExchange { signature, ke_pk } => {
+                to_bytes_keyexchange(&signature, &ke_pk, buf, secp256k1)
+            }
         }
     }
 }
 
-/// Codec implementing the Encoder and Decoder trait for
-/// Messages.
+/// Codec implementing the Encoder and Decoder trait for Messages.
 pub struct MessageCodec {
     secp256k1: Secp256k1,
 }
@@ -263,9 +264,41 @@ mod tests {
 
         // Correct magic, but too short
         buf.clear();
-        buf.extend([0x68, 0x1e, 0x58, 0x12].iter());
+        buf.extend(MAGIC.iter());
         assert_eq!(codec.decode(&mut buf).unwrap(), None);
         assert_eq!(buf.len(), 4);
+    }
+    #[test]
+    fn decode_keyexchange() {
+        let mut codec = MessageCodec { secp256k1: Secp256k1::new() };
+        let mut buf = BytesMut::new();
+
+        buf.clear();
+        buf.extend(MAGIC.iter());
+        let variant = 0;
+        buf.extend([variant].iter());
+        let protocol_version = 0;
+        buf.extend([protocol_version].iter());
+        let signature: [u8; 64] = [0xab; 64];
+        buf.extend(signature.iter());
+        let ke_pk: [u8; 33] = [0x02; 33];
+        buf.extend(ke_pk.iter());
+        let mut buf_copy = buf.clone();
+        assert!(codec.decode(&mut buf).unwrap().is_some());
+
+        // Verify that an invalid public key `ke_pk` results in an error.
+        let buf_len = buf_copy.len();
+        buf_copy.truncate(buf_len - 1);
+        buf_copy.extend([0x04].iter());
+        assert_eq!(
+            codec
+                .decode(&mut buf_copy)
+                .unwrap_err()
+                .get_ref()
+                .unwrap()
+                .description(),
+            "Public key parsing failed"
+        );
     }
 
     #[test]
@@ -274,8 +307,8 @@ mod tests {
         let secp256k1 = Secp256k1::new();
         let slice: [u8; 32] = [0xab; 32];
         let sk = SecretKey::from_slice(&secp256k1, &slice).unwrap();
-        let pk = PublicKey::from_secret_key(&secp256k1, &sk).unwrap();
-        assert!(pk.is_valid());
+        let ke_pk = PublicKey::from_secret_key(&secp256k1, &sk).unwrap();
+        assert!(ke_pk.is_valid());
         let slice: [u8; 32] = [0x01; 32];
         let msg = secp256k1::Message::from_slice(&slice).unwrap();
         let sig = secp256k1.sign(&msg, &sk).unwrap();
@@ -285,7 +318,7 @@ mod tests {
             Header::new(0),
             Payload::KeyExchange {
                 signature: sig,
-                public_key: pk,
+                ke_pk: ke_pk,
             },
         );
         let mut codec = MessageCodec { secp256k1: Secp256k1::new() };
