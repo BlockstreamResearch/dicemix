@@ -30,10 +30,7 @@ impl Message {
     }
     /// Takes a byte slice and builds a Message. Returns same as MessageCodec::decode plus the
     /// remaining (unconsumed) buffer.
-    fn from_bytes<'a>(
-        buf: &'a [u8],
-        secp256k1: &Secp256k1,
-    ) -> io::Result<Option<(Message, &'a [u8])>> {
+    fn decode<'a>(buf: &'a [u8], secp256k1: &Secp256k1) -> io::Result<Option<(Message, &'a [u8])>> {
         // Magic
         if buf.len() < 4 {
             return Ok(None);
@@ -42,11 +39,11 @@ impl Message {
         if magic[..4] != MAGIC {
             return Err(io::Error::new(io::ErrorKind::Other, "Wrong magic bytes"));
         }
-        let (header, buf) = match try!(Header::from_bytes(buf)) {
+        let (header, buf) = match try!(Header::decode(buf)) {
             None => return Ok(None),
             Some((header, buf)) => (header, buf),
         };
-        let (payload, buf) = match try!(Payload::from_bytes(buf, secp256k1)) {
+        let (payload, buf) = match try!(Payload::decode(buf, secp256k1)) {
             None => return Ok(None),
             Some((payload, buf)) => (payload, buf),
         };
@@ -58,10 +55,10 @@ impl Message {
             buf,
         )));
     }
-    fn to_bytes(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
+    fn encode(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
         buf.extend(MAGIC.iter());
-        self.header.to_bytes(buf)?;
-        self.payload.to_bytes(buf, secp256k1)?;
+        self.header.encode(buf)?;
+        self.payload.encode(buf, secp256k1)?;
         Ok(())
     }
 }
@@ -83,14 +80,14 @@ impl Header {
     }
     /// Takes a byte slice and builds a Header. Returns same as MessageCodec::decode plus the
     /// remaining (unconsumed) buffer.
-    fn from_bytes<'a>(buf: &'a [u8]) -> io::Result<Option<(Header, &'a [u8])>> {
+    fn decode<'a>(buf: &'a [u8]) -> io::Result<Option<(Header, &'a [u8])>> {
         if buf.len() < 1 {
             return Ok(None);
         }
         let (ver, buf) = buf.split_at(1);
         return Ok(Some((Header { protocol_version: ver[0] }, buf)));
     }
-    fn to_bytes(&self, buf: &mut BytesMut) -> io::Result<()> {
+    fn encode(&self, buf: &mut BytesMut) -> io::Result<()> {
         buf.extend(vec![self.protocol_version]);
         Ok(())
     }
@@ -106,86 +103,19 @@ impl Header {
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Payload {
-    /// KeyExchange take the following form:
-    ///
-    /// | Field      | Length | Description                                                        |
-    /// |------------|--------|--------------------------------------------------------------------|
-    /// | signature  | 64     | Compressed ECDSA signature over ke_pk key using the long term      |
-    /// |            |        | public key                                                         |
-    /// | ke_pk      | 33     | Compressed ephemeral public key                                    |
-    ///
-    KeyExchange {
-        signature: Signature,
-        ke_pk: PublicKey,
-    },
-}
-
-fn from_bytes_keyexchange<'a>(
-    buf: &'a [u8],
-    secp256k1: &Secp256k1,
-) -> io::Result<Option<(Payload, &'a [u8])>> {
-    if buf.len() < 64 + 33 {
-        return Ok(None);
-    }
-    let (signature, buf) = buf.split_at(64);
-    let signature = {
-        match Signature::from_compact(secp256k1, signature) {
-            Ok(sig) => sig,
-            Err(_) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Signature parsing failed",
-                ))
-            }
-        }
-    };
-    let (ke_pk, buf) = buf.split_at(33);
-    let ke_pk = {
-        match PublicKey::from_slice(secp256k1, ke_pk) {
-            Ok(pk) => pk,
-            Err(_) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Public key parsing failed",
-                ))
-            }
-        }
-    };
-    return Ok(Some((
-        Payload::KeyExchange {
-            signature: signature,
-            ke_pk: ke_pk,
-        },
-        buf,
-    )));
-}
-
-
-fn to_bytes_keyexchange(
-    signature: &Signature,
-    ke_pk: &PublicKey,
-    buf: &mut BytesMut,
-    secp256k1: &Secp256k1,
-) -> io::Result<()> {
-    buf.extend(vec![0x00]);
-    buf.extend(signature.serialize_compact(secp256k1).iter());
-    buf.extend(ke_pk.serialize_vec(secp256k1, true));
-    Ok(())
+    KeyExchange(KeyExchange),
 }
 
 impl Payload {
     /// Takes a byte slice and builds a Payload. Returns same as MessageCodec::decode plus the
     /// remaining (unconsumed) buffer.
-    fn from_bytes<'a>(
-        buf: &'a [u8],
-        secp256k1: &Secp256k1,
-    ) -> io::Result<Option<(Payload, &'a [u8])>> {
+    fn decode<'a>(buf: &'a [u8], secp256k1: &Secp256k1) -> io::Result<Option<(Payload, &'a [u8])>> {
         if buf.len() < 1 {
             return Ok(None);
         }
         let (variant, buf) = buf.split_at(1);
         match variant[0] {
-            0 => return from_bytes_keyexchange(buf, secp256k1),
+            0 => return KeyExchange::decode(buf, secp256k1),
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -194,12 +124,73 @@ impl Payload {
             }
         }
     }
-    fn to_bytes(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
+    fn encode(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
         match self {
-            &Payload::KeyExchange { signature, ke_pk } => {
-                to_bytes_keyexchange(&signature, &ke_pk, buf, secp256k1)
-            }
+            &Payload::KeyExchange(key_exchange) => key_exchange.encode(buf, secp256k1),
         }
+    }
+}
+
+/// KeyExchange take the following form:
+///
+/// | Field      | Length | Description                                                        |
+/// |------------|--------|--------------------------------------------------------------------|
+/// | signature  | 64     | Compressed ECDSA signature over ke_pk key using the long term      |
+/// |            |        | public key                                                         |
+/// | ke_pk      | 33     | Compressed ephemeral public key                                    |
+///
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct KeyExchange {
+    signature: Signature,
+    ke_pk: PublicKey,
+}
+
+impl KeyExchange {
+    fn new(signature: Signature, ke_pk: PublicKey) -> KeyExchange {
+        KeyExchange {
+            signature: signature,
+            ke_pk: ke_pk,
+        }
+    }
+    fn decode<'a>(buf: &'a [u8], secp256k1: &Secp256k1) -> io::Result<Option<(Payload, &'a [u8])>> {
+        if buf.len() < 64 + 33 {
+            return Ok(None);
+        }
+        let (signature, buf) = buf.split_at(64);
+        let signature = {
+            match Signature::from_compact(secp256k1, signature) {
+                Ok(sig) => sig,
+                Err(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Signature parsing failed",
+                    ))
+                }
+            }
+        };
+        let (ke_pk, buf) = buf.split_at(33);
+        let ke_pk = {
+            match PublicKey::from_slice(secp256k1, ke_pk) {
+                Ok(pk) => pk,
+                Err(_) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Public key parsing failed",
+                    ))
+                }
+            }
+        };
+        return Ok(Some((
+            Payload::KeyExchange(KeyExchange::new(signature, ke_pk)),
+            buf,
+        )));
+    }
+
+    fn encode(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
+        buf.extend(vec![0x00]);
+        buf.extend(self.signature.serialize_compact(secp256k1).iter());
+        buf.extend(self.ke_pk.serialize_vec(secp256k1, true));
+        Ok(())
     }
 }
 
@@ -207,9 +198,6 @@ impl Payload {
 pub struct MessageCodec {
     secp256k1: Secp256k1,
 }
-
-
-
 
 impl Decoder for MessageCodec {
     type Item = Message;
@@ -221,7 +209,7 @@ impl Decoder for MessageCodec {
     /// not mutated and Ok(None) is returned. If there's an error during parsing
     /// Err() is returned.
     fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<Message>> {
-        let (msg, remaining_buf_len) = match try!(Message::from_bytes(&buf[..], &self.secp256k1)) {
+        let (msg, remaining_buf_len) = match try!(Message::decode(&buf[..], &self.secp256k1)) {
             None => return Ok(None),
             Some((msg, remaining_buf)) => (msg, remaining_buf.len()),
         };
@@ -237,7 +225,7 @@ impl Encoder for MessageCodec {
 
     /// Writes a message to `buf`.
     fn encode(&mut self, msg: Message, buf: &mut BytesMut) -> io::Result<()> {
-        msg.to_bytes(buf, &self.secp256k1)
+        msg.encode(buf, &self.secp256k1)
     }
 }
 
@@ -316,10 +304,7 @@ mod tests {
         // Create Message and encode and decode
         let msg = Message::new(
             Header::new(0),
-            Payload::KeyExchange {
-                signature: sig,
-                ke_pk: ke_pk,
-            },
+            Payload::KeyExchange(KeyExchange::new(sig, ke_pk)),
         );
         let mut codec = MessageCodec { secp256k1: Secp256k1::new() };
         let mut buf = BytesMut::new();
