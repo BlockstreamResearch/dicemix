@@ -1,5 +1,5 @@
 use bytes::BytesMut;
-use secp256k1::key::PublicKey;
+use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Secp256k1;
 use secp256k1::Signature;
 use std::io;
@@ -15,7 +15,7 @@ const MAGIC: [u8; 4] = [0x68, 0x1e, 0x58, 0x12];
 /// | header  | 1      | Message header                                                |
 /// | payload | ...    | Message payload                                               |
 ///
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Message {
     header: Header,
     payload: Payload,
@@ -97,13 +97,19 @@ impl Header {
 ///
 /// | Field   | Length | Description                                                   |
 /// |---------|--------|---------------------------------------------------------------|
-/// | Variant | 1      | Determines which payload variant this is                      |
+/// | Type    | 1      | Determines which payload type this is                         |
 /// |         |        |     0: KeyExchange                                            |
 /// | Payload | ...    | The actual payload                                            |
 ///
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 enum Payload {
     KeyExchange(KeyExchange),
+    DcExponential(DcExponential),
+    DcXor(DcXor),
+    // TODO: DcAddSecp256k1Scalar
+    Blame(Blame),
+    Confirm(Confirm),
+    Reveal(Reveal),
 }
 
 impl Payload {
@@ -113,8 +119,8 @@ impl Payload {
         if buf.len() < 1 {
             return Ok(None);
         }
-        let (variant, buf) = buf.split_at(1);
-        match variant[0] {
+        let (payload_type, buf) = buf.split_at(1);
+        match payload_type[0] {
             0 => return KeyExchange::decode(buf, secp256k1),
             _ => {
                 return Err(io::Error::new(
@@ -126,12 +132,13 @@ impl Payload {
     }
     fn encode(&self, buf: &mut BytesMut, secp256k1: &Secp256k1) -> io::Result<()> {
         match self {
-            &Payload::KeyExchange(key_exchange) => key_exchange.encode(buf, secp256k1),
+            &Payload::KeyExchange(ref key_exchange) => key_exchange.encode(buf, secp256k1),
+            _ => unimplemented!(),
         }
     }
 }
 
-/// KeyExchange take the following form:
+/// KeyExchange takes the following form:
 ///
 /// | Field      | Length | Description                                                        |
 /// |------------|--------|--------------------------------------------------------------------|
@@ -139,7 +146,7 @@ impl Payload {
 /// |            |        | public key                                                         |
 /// | ke_pk      | 33     | Compressed ephemeral public key                                    |
 ///
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 struct KeyExchange {
     signature: Signature,
     ke_pk: PublicKey,
@@ -192,6 +199,67 @@ impl KeyExchange {
         buf.extend(self.ke_pk.serialize_vec(secp256k1, true));
         Ok(())
     }
+}
+
+/// DcExponential takes the following form:
+///
+/// | Field      | Length         | Description                                                |
+/// |------------|----------------|------------------------------------------------------------|
+/// | num_msgs   |              4 | Number of messages of unexcluded peers (sanity check)      |
+/// | commitment |             32 | Commitment to all input messages of the sending peer       |
+/// | dc_exp     | num_peers * 16 | DC-net vector (exponential encoding in finite field)       |
+///
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct DcExponential {
+    commitment: [u8; 32],
+    dc_exp: Vec<[u8; 16]>,
+}
+
+/// DcXor takes the following form:
+///
+/// | Field      | Length              | Description                                           |
+/// |------------|---------------------|-------------------------------------------------------|
+/// | ok         |                   1 | Flag indicating that the DcExponential phase was okay |
+/// | dc_xor     | num_peers * msg_len | DC-net vector (simple XOR pad)                        |
+///
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct DcXor {
+    ok: bool,
+    dc_xor: Vec<Vec<u8>>,
+}
+
+/// Blame takes the following form:
+///
+/// | Field      | Length | Description                                                        |
+/// |------------|--------|--------------------------------------------------------------------|
+/// | ke_sk      |     32 | The ephemeral secret key for this run                              |
+///
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Blame {
+    ke_sk: SecretKey,
+}
+
+/// Confirm takes the following form:
+///
+/// | Field      | Length | Description                                                        |
+/// |------------|--------|--------------------------------------------------------------------|
+/// | data       |      ? | Application-defined confirmation data                              |
+///
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Confirm {
+    data: Vec<u8>,
+}
+
+/// Reveal consists of a field keys, which contain one or several pairs of the following form:
+///
+/// | Field      | Length | Description                                                        |
+/// |------------|--------|--------------------------------------------------------------------|
+/// | peer_index |      4 | Index of peer whose symmetric key is revealed                      |
+/// | key        |     16 | Revealed symmetric key                                             |
+///
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Reveal {
+    keys: Vec<(u32, [u8; 16])>,
 }
 
 /// Codec implementing the Encoder and Decoder trait for Messages.
