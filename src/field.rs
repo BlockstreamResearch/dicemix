@@ -80,6 +80,7 @@ impl Neg for Fp {
 
 impl Add for Fp {
     type Output = Self;
+    #[inline]
     fn add(self, other: Self) -> Self {
         Fp((self.0 + other.0).reduce_once_assert())
     }
@@ -136,6 +137,7 @@ impl MulAssign for Fp {
 }
 
 impl PartialEq for Fp {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         u128::from(*self) == u128::from(*other)
     }
