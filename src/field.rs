@@ -21,7 +21,7 @@ trait Reduce: Sized {
     #[inline]
     fn reduce_once_assert(self) -> u128 {
         let red: u128 = self.reduce_once();
-        debug_assert!(0 <= red && red <= P);
+        debug_assert!(red <= P);
         red
     }
 }
