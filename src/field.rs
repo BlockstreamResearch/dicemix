@@ -145,6 +145,7 @@ impl PartialEq for Fp {
 
 impl Eq for Fp {}
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
