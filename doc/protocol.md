@@ -48,7 +48,7 @@ TODO: Write
  * randomness can be obtained using calls such as `prg.get_bytes(n)` or `prg.get_field_element()`.
 
 #### Non-interactive Key Exchange
-We need a non-interactive key exchange protocol secure in the CRS model.
+We need a non-interactive key exchange protocol secure in the CKS model.
  * `(kesk, kepk) := new_ke_keypair(rand)` generates a secret key and a public key.
  We assume that for every valid public key there is a unique corresponding secret key.
  (Note: For ECDH, this implies that setting `kepk` to be just the x-coordinate without an
@@ -139,7 +139,7 @@ loop
     if there are duplicate value in ids[] then
         fail "Duplicate peer IDs."
 
-    sid := version || options || nonce || run || ids[0] || ... || ids[|P|]
+    sid := version || options || run || ids[0] || ... || ids[|P|]
     sid_hash := hash("SID" || sid)
     // FIXME more SIDs later?
 
