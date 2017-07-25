@@ -19,8 +19,19 @@ pub struct Message {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 struct Header {
-    protocol_version: u8,
+    session_id: SessionId,
+    peer_id: PeerId,
+    signature: Signature,
 }
+
+// FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
+// This can be resolved in the future using const generics, see the corresponding Rust RFC:
+// https://github.com/rust-lang/rfcs/pull/2000/files
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct PeerId([u8; 32], [u8; 32]);
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct SessionId([u8; 32]);
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 enum Payload {
@@ -35,7 +46,6 @@ enum Payload {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 struct KeyExchange {
-    signature: Signature,
     ke_pk: PublicKey,
 }
 
@@ -69,7 +79,6 @@ struct Reveal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use secp256k1::Secp256k1;
     use secp256k1::key::SecretKey;
 
     use std::io::Cursor;
@@ -81,20 +90,22 @@ mod tests {
     #[test]
     fn roundtrip_serde_bincode() {
         // Create secret key, public key, message digest and signature
-        let secp256k1 = Secp256k1::new();
         let slice: [u8; 32] = [0xab; 32];
-        let sk = SecretKey::from_slice(&secp256k1, &slice).unwrap();
-        let ke_pk = PublicKey::from_secret_key(&secp256k1, &sk).unwrap();
+        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
+        let ke_pk = PublicKey::from_secret_key(&::SECP256K1, &sk).unwrap();
         assert!(ke_pk.is_valid());
         let slice: [u8; 32] = [0x01; 32];
         let msg = ::secp256k1::Message::from_slice(&slice).unwrap();
-        let sig = secp256k1.sign(&msg, &sk).unwrap();
+        let sig = ::SECP256K1.sign(&msg, &sk).unwrap();
 
         // Create message
         let msg1 = Message {
-            header: Header { protocol_version: 0 },
-            payload: Payload::KeyExchange(KeyExchange {
+            header: Header {
+                peer_id: PeerId([17; 32], [7; 32]),
+                session_id: SessionId([56; 32]),
                 signature: sig,
+            },
+            payload: Payload::KeyExchange(KeyExchange {
                 ke_pk: ke_pk,
             }),
         };
