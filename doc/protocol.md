@@ -18,18 +18,22 @@ protocol messages from each peer and forwarding them to all other peers. The bro
 responsible for ensuring that the same protocol message is forwarded to all other peers and for
 notifiying the other peers when a peer has failed to send a protocol message in time.
 
-The communication between peers and the broadcast mechanism must be authenticated in both
-directions to prevent a network attacker from interfering with the protocol.
+Even if not strictly necessary, it is recommended that the peers communicate to the broadcast
+mechanism via a channel that provides confidentiality, authentication of the broadcast mechanism,
+and anonymity on the network level (i.e., unlinkability of sender and network identifiers such as
+IP addresses). This can be achieved by a broadcast mechanism reachable via a Tor Hidden Service.
 
 ## Security Goals
 A P2P mixing protocol provides two security guarantees.
 
- * Sender Anonymity
+ * Sender-Message Unlinkability
 
  An attacker controlling the network (including the broadcast mechanism) and some peers is not able
- to tell which input message belongs to which honest peer. In more detail, the anonymity set of an
- individual honest peer is the set of all honest peers who have not been excluded for being
- offline.
+ to tell which input message belongs to which honest peer. In more detail, define the anonymity set
+ of an individual honest peer's message to be the set of all honest peers who have not been
+ excluded for being offline. Then the case that peer `p1` has sent input message `m` is
+ computationally indistinguishable from the case that peer `p2` has sent message `m` for all peers
+ `p1` and `p2` in the anonymity set.
 
  * Termination
 
@@ -72,6 +76,9 @@ Both hash functions are modeled as random oracles.
  the finite field.
  * String constants such as `"KE"` are symbolic, their actual representation as bytes is
  defined below.
+ * Every peer `p` signs all its messages using the respective long-term signing key `p.ltsk`.
+ The signatures are omitted in the pseudocode for readability. A peer who receives an incorrectly
+ signed message is immediately treats the sending peer as offline and discards the message.
 
 ### Pseudocode
 ```
@@ -280,7 +287,7 @@ loop
 
 ### Security
 
-#### Sender Anonymity
+#### Sender-Message Unlinkability
 The security argument is similar to the one presented for the [original DiceMix protocol][dicemix].
 
 #### Termination
@@ -341,3 +348,10 @@ Still the loss of security is quadratic in the number of mixed messages.
 This can speed up the computation, because polynomial factorization in a 64-bit field is faster
 than in a 128 bit field by more than a factor of 2 (at least in FLINT). Moreover, it is possible to
 handle both DC-nets in parallel.
+
+#### Only Sign the Key Exchange
+In principle, it suffices to sign the key exchange messages. All other protocol messages do not
+need to be authenticated for sender-message unlinkability. So if signature verification is a
+bottleneck, then it is possible to drop the other signatures, which however adds complexity to the
+protocol as well as its analysis by giving the attacker much more possibility to fiddle with the
+protocol messages and reach possibly overlooked cases.
