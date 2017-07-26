@@ -17,13 +17,13 @@ use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
 ///
 /// Protocol messages consist of a header and a payload.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct Message {
+pub(crate) struct Message {
     pub header: Header,
     pub payload: Payload,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct Header {
+pub(crate) struct Header {
     pub session_id: SessionId,
     pub peer_index: PeerIndex,
     pub sequence_num: SequenceNum,
@@ -31,7 +31,7 @@ pub struct Header {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum Payload {
+pub(crate) enum Payload {
     KeyExchange(KeyExchange),
     DcExponential(DcExponential),
     DcXor(DcXor),
@@ -42,24 +42,24 @@ pub enum Payload {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct KeyExchange {
+pub(crate) struct KeyExchange {
     pub ke_pk: PublicKey,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct DcExponential {
+pub(crate) struct DcExponential {
     pub commitment: [u8; 32],
     pub dc_exp: Vec<[u8; 16]>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct DcXor {
+pub(crate) struct DcXor {
     pub ok: bool,
     pub dc_xor: Vec<Vec<u8>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct Blame {
+pub(crate) struct Blame {
     pub ke_sk: SecretKey,
 }
 
@@ -69,7 +69,7 @@ pub struct Confirm {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct Reveal {
+pub(crate) struct Reveal {
     pub keys: Vec<(PeerIndex, SymmetricKey)>,
 }
 
