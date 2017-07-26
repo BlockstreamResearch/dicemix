@@ -11,7 +11,7 @@
 
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Signature;
-use vec_map::VecMap;
+use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
 
 /// A protocol message
 ///
@@ -25,18 +25,10 @@ pub struct Message {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Header {
     pub session_id: SessionId,
-    pub peer_id: PeerId,
+    pub peer_index: PeerIndex,
+    pub sequence_num: SequenceNum,
     pub signature: Signature,
 }
-
-// FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
-// This can be resolved in the future using const generics, see the corresponding Rust RFC:
-// https://github.com/rust-lang/rfcs/pull/2000/files
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct PeerId([u8; 32], [u8; 32]);
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct SessionId([u8; 32]);
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Payload {
@@ -78,7 +70,7 @@ pub struct Confirm {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Reveal {
-    pub keys: VecMap<[u8; 16]>,
+    pub keys: Vec<(PeerIndex, SymmetricKey)>,
 }
 
 #[cfg(test)]

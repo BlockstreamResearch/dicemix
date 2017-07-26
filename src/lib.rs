@@ -21,6 +21,19 @@ mod rng;
 mod field;
 mod messages;
 
+type SymmetricKey = [u8; 32];
+type PeerIndex = u32;
+type SequenceNum = u32;
+
+// FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
+// This can be resolved in the future using const generics, see the corresponding Rust RFC:
+// https://github.com/rust-lang/rfcs/pull/2000/files
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct PeerId([u8; 32], [u8; 32]);
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct SessionId([u8; 32]);
+
 lazy_static! {
     pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
 }
