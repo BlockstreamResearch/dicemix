@@ -1,8 +1,13 @@
 //! Protocol messages
 //!
 //! All protocol messages are serialized by serde according to the bincode data format. For
-//! transmission on the wire, tokio_io::codec::length_delimited is used to prepend protocol
-//! messages by an additional length header, thereby creating frames.
+//! transmission on the wire, `tokio_io::codec::length_delimited` is used to prepend protocol
+//! messages by an additional length header, thereby creating frames. It is crucial to
+//!
+//! The main type `Message` and the types in its fields are dump containers, which are not
+//! responsible for any protocol logic (except for syntactic validation including validation of
+//! `PublicKey` and `SecretKey` fields). Consequently, all fields of `Message` and all fields of
+//! its contained types such as `Header` and `Payload` are public.
 
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Signature;
@@ -13,28 +18,28 @@ use vec_map::VecMap;
 /// Protocol messages consist of a header and a payload.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Message {
-    header: Header,
-    payload: Payload,
+    pub header: Header,
+    pub payload: Payload,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct Header {
-    session_id: SessionId,
-    peer_id: PeerId,
-    signature: Signature,
+pub struct Header {
+    pub session_id: SessionId,
+    pub peer_id: PeerId,
+    pub signature: Signature,
 }
 
 // FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
 // This can be resolved in the future using const generics, see the corresponding Rust RFC:
 // https://github.com/rust-lang/rfcs/pull/2000/files
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct PeerId([u8; 32], [u8; 32]);
+pub struct PeerId([u8; 32], [u8; 32]);
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct SessionId([u8; 32]);
+pub struct SessionId([u8; 32]);
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-enum Payload {
+pub enum Payload {
     KeyExchange(KeyExchange),
     DcExponential(DcExponential),
     DcXor(DcXor),
@@ -45,35 +50,35 @@ enum Payload {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct KeyExchange {
-    ke_pk: PublicKey,
+pub struct KeyExchange {
+    pub ke_pk: PublicKey,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct DcExponential {
-    commitment: [u8; 32],
-    dc_exp: Vec<[u8; 16]>,
+pub struct DcExponential {
+    pub commitment: [u8; 32],
+    pub dc_exp: Vec<[u8; 16]>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct DcXor {
-    ok: bool,
-    dc_xor: Vec<Vec<u8>>,
+pub struct DcXor {
+    pub ok: bool,
+    pub dc_xor: Vec<Vec<u8>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct Blame {
-    ke_sk: SecretKey,
+pub struct Blame {
+    pub ke_sk: SecretKey,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct Confirm {
-    data: Vec<u8>,
+pub struct Confirm {
+    pub data: Vec<u8>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct Reveal {
-    keys: VecMap<[u8; 16]>,
+pub struct Reveal {
+    pub keys: VecMap<[u8; 16]>,
 }
 
 #[cfg(test)]
