@@ -7,6 +7,7 @@ use super::*;
 use self::history::*;
 
 mod history;
+mod peer;
 
 /// Public information about a peer
 #[derive(Clone, Debug)]
