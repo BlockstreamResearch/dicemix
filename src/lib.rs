@@ -20,6 +20,7 @@ mod solver;
 mod rng;
 mod field;
 mod messages;
+mod state;
 
 lazy_static! {
     pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
