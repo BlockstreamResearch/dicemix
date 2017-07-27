@@ -81,14 +81,14 @@ pub(crate) struct Reveal {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use secp256k1::key::SecretKey;
-
     use std::io::Cursor;
     use tokio_io::codec::length_delimited;
     use tokio_serde_bincode::{ReadBincode, WriteBincode};
     use futures::sink::Sink;
     use futures::{Future, Stream};
+
+    use super::*;
+    use secp256k1::key::SecretKey;
 
     #[test]
     fn roundtrip_serde_bincode() {
@@ -104,8 +104,9 @@ mod tests {
         // Create message
         let msg1 = Message {
             header: Header {
-                peer_id: PeerId([17; 32], [7; 32]),
+                peer_index: 17,
                 session_id: SessionId([56; 32]),
+                sequence_num: 14,
                 signature: sig,
             },
             payload: Payload::KeyExchange(KeyExchange {
