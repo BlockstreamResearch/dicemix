@@ -39,45 +39,48 @@ pub struct PeerId([u8; 32], [u8; 32]);
 struct SessionId([u8; 32]);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-enum ConfirmationVariant {
-    EcdsaSignatures,
-    ValueShuffle,
+pub enum Variant {
+    PlainEcdsa,
+    ValueShuffleElementsEcdsa,
+    // TODO This requires support for early confirmation data, i.e., confirmation data before
+    // the actual confirmation phase.
+    // PlainSchnorrMulti,
+    // ValueShuffleElementsSchnorrMulti.
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct Options {
-    confirmation: ConfirmationVariant,
-    num_dc_xor: usize,
-    num_dc_add_secp251k1_scalar: usize,
+    variant: Variant,
+    /// Indicates the requirement for a DC-net in the group of secp256k1 scalars
+    dc_add_secp256k1_scalar: bool,
+    // TODO This could be useful for MimbleWimble.
+    // dc_add_secp256k1_point: bool
 }
 
 impl Options {
-    fn new_simple() -> Self {
-        Self {
-            confirmation: ConfirmationVariant::EcdsaSignatures,
-            num_dc_xor: 1,
-            num_dc_add_secp251k1_scalar: 0,
+    fn new_simple(variant: Variant) -> Self {
+        match variant {
+            Variant::PlainEcdsa => {
+                Self {
+                    variant: Variant::PlainEcdsa,
+                    dc_add_secp256k1_scalar: false,
+                }
+            },
+            Variant::ValueShuffleElementsEcdsa => {
+                Self {
+                    variant: Variant::ValueShuffleElementsEcdsa,
+                    dc_add_secp256k1_scalar: true,
+                }
+            },
         }
     }
 
-    fn new_valueshuffle() -> Self {
-        Self {
-            confirmation: ConfirmationVariant::ValueShuffle,
-            num_dc_xor: 1,
-            num_dc_add_secp251k1_scalar: 1,
-        }
+    fn variant(&self) -> Variant {
+        self.variant
     }
 
-    fn confirmation(&self) -> ConfirmationVariant {
-        self.confirmation
-    }
-
-    fn num_dc_xor(&self) -> usize {
-        self.num_dc_xor
-    }
-
-    fn num_dc_add_secp251k1_scalar(&self) -> usize {
-        self.num_dc_add_secp251k1_scalar
+    fn dc_add_secp256k1_scalar(&self) -> bool {
+        self.dc_add_secp256k1_scalar
     }
 }
 
