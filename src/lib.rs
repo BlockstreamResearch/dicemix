@@ -21,6 +21,10 @@ mod rng;
 mod field;
 mod messages;
 
+lazy_static! {
+    pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
+}
+
 type SymmetricKey = [u8; 32];
 type PeerIndex = u32;
 type SequenceNum = u32;
@@ -32,7 +36,7 @@ type SequenceNum = u32;
 pub struct PeerId([u8; 32], [u8; 32]);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct SessionId([u8; 32]);
+struct SessionId([u8; 32]);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 enum ConfirmationVariant {
@@ -50,7 +54,7 @@ pub struct Options {
 impl Options {
     fn new_simple() -> Self {
         Self {
-            confirmation: EcdsaSignatures,
+            confirmation: ConfirmationVariant::EcdsaSignatures,
             num_dc_xor: 1,
             num_dc_add_secp251k1_scalar: 0,
         }
@@ -58,7 +62,7 @@ impl Options {
 
     fn new_valueshuffle() -> Self {
         Self {
-            confirmation_variant: ValueShuffle,
+            confirmation: ConfirmationVariant::ValueShuffle,
             num_dc_xor: 1,
             num_dc_add_secp251k1_scalar: 1,
         }
@@ -75,10 +79,6 @@ impl Options {
     fn num_dc_add_secp251k1_scalar(&self) -> usize {
         self.num_dc_add_secp251k1_scalar
     }
-}
-
-lazy_static! {
-    pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
 }
 
 #[cfg(test)]
