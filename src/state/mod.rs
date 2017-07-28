@@ -62,14 +62,46 @@ struct RunStateMachine {
 }
 
 impl RunStateMachine {
+    fn new(&mut self, run: RunCounter, kepks: VecMap<PublicKey>) -> Self {
+        let num_peers = kepks.len();
+        let new = Self {
+            run: 0,
+            state: RunState::DcExponential(DcState::Process),
+            kepks: kepks,
+            received: BitSet::with_capacity(num_peers),
+            otvk_hashes: None,
+            peers_before_dc_exponential: None,
+            peers_before_dc_main: None,
+        };
+        debug_assert!(new.consistent());
+        new
+    }
+
+    #[inline]
+    fn num_peers(&self) -> usize {
+        self.kepks.len()
+    }
+
     #[inline]
     fn set_state(&mut self, state: RunState) {
         assert!(self.state < state);
         self.state = state;
     }
 
+    #[inline]
+    fn consistent(&self) -> bool {
+        match (self.peers_before_dc_exponential.is_some(),
+               self.otvk_hashes.is_some(),
+               self.peers_before_dc_main.is_some()) {
+            (false, false, false) => true,
+            (false, _, _) => false,
+            (true, x, y) => x == y,
+        }
+    }
+
     fn process(&self, payload: Payload) -> Option<Payload> {
-        unimplemented!()
+        unimplemented!();
+        assert!(self.consistent());
     }
 }
 
