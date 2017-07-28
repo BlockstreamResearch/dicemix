@@ -13,6 +13,7 @@ extern crate vec_map;
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;
+extern crate bit_set;
 
 use secp256k1::Secp256k1;
 
