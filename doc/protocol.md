@@ -290,6 +290,12 @@ loop
 #### Sender-Message Unlinkability
 The security argument is similar to the one presented for the [original DiceMix protocol][dicemix].
 
+Note: It is crucial that for every run, every peer either starts confirmation with another peer, or
+reveals the shared key with the other peer (where revealing the key exchange secret key is
+equivalent to revealing shared keys with everybody). This holds true, because before starting
+confirmation, only shared keys with peers not involved in confirmation are revealed, and after
+starting confirmation, shared keys (and the key exchange secret key) are not revealed.
+
 #### Termination
 For termination, we assume that the broadcast mechanism is honest, i.e., it delivers messages
 correctly and it does not equivocate.
@@ -298,7 +304,7 @@ The honest peers, who are assumed to receive the same messages, hold by construc
 in their consensus-critical public variables and take the same consensus-critical control flow
 decisions, unless an honest peer fails with "One of my own messages in missing". This failure
 happens only with negligible probability for an honest peer, because this requires the attacker to
-find a second preimage of the message hash of the honest honest peer.
+find a second preimage of the message hash of the honest peer.
 
 By correctness of the protocol, a protocol run terminates if every peer sends expected messages and
 there is no message hash collision (and thus no slot collision). Consequently we can distinguish
