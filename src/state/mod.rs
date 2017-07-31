@@ -12,15 +12,15 @@ mod history;
 mod peer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-enum DcState {
-    Process,
-    Reveal,
+enum DcPhase {
+    Exponential,
+    Main,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum RunState {
-    DcExponential(DcState),
-    DcMain(DcState),
+    DcProcess(DcPhase),
+    DcReveal(DcPhase),
     Blame,
     Confirm,
 }
@@ -35,10 +35,12 @@ impl PartialOrd for RunState {
         #[inline]
         fn discriminant(x: &RunState) -> u32 {
             match *x {
-                RunState::DcExponential(_) => 0,
-                RunState::DcMain(_) => 1,
-                RunState::Blame => 2,
-                RunState::Confirm => 3,
+                RunState::DcProcess(DcPhase::Exponential) => 0,
+                RunState::DcReveal(DcPhase::Exponential) => 1,
+                RunState::DcProcess(DcPhase::Main) => 2,
+                RunState::DcReveal(DcPhase::Main) => 3,
+                RunState::Blame => 4,
+                RunState::Confirm => 5,
             }
         }
 
@@ -66,7 +68,7 @@ impl RunStateMachine {
         let num_peers = kepks.len();
         let new = Self {
             run: 0,
-            state: RunState::DcExponential(DcState::Process),
+            state: RunState::DcProcess(DcPhase::Exponential),
             kepks: kepks,
             received: BitSet::with_capacity(num_peers),
             otvk_hashes: None,
@@ -90,6 +92,7 @@ impl RunStateMachine {
 
     #[inline]
     fn consistent(&self) -> bool {
+        // TODO check also the state ...
         match (self.peers_before_dc_exponential.is_some(),
                self.otvk_hashes.is_some(),
                self.peers_before_dc_main.is_some()) {
@@ -100,7 +103,27 @@ impl RunStateMachine {
     }
 
     fn process(&self, payload: Payload) -> Option<Payload> {
-        unimplemented!();
+        match(self.state, payload) {
+            (RunState::DcProcess(DcPhase::Exponential), Payload::DcExponential(msg)) => {
+                unimplemented!()
+            },
+            (RunState::DcProcess(DcPhase::Main), Payload::DcMain(msg)) => {
+                unimplemented!()
+            },
+            (RunState::DcReveal(phase), Payload::Reveal(msg)) => {
+                unimplemented!()
+            },
+            (RunState::Blame, Payload::Blame(msg)) => {
+                unimplemented!()
+            },
+            (RunState::Confirm, Payload::Confirm(msg)) => {
+                unimplemented!()
+            },
+            _ => {
+                // TODO Kick the peer out
+                unimplemented!()
+            }
+        }
         assert!(self.consistent());
     }
 }
