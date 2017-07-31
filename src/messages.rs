@@ -34,8 +34,7 @@ pub(crate) struct Header {
 pub(crate) enum Payload {
     KeyExchange(KeyExchange),
     DcExponential(DcExponential),
-    DcXor(DcXor),
-    DcAddSecp256k1Scalar(DcAddSecp256k1Scalar),
+    DcMain(DcMain),
     Blame(Blame),
     Confirm(Confirm),
     Reveal(Reveal),
@@ -53,15 +52,17 @@ pub(crate) struct DcExponential {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct DcXor {
+pub(crate) struct DcMain {
     pub ok: bool,
     pub dc_xor: Vec<Vec<u8>>,
+    pub ke_pk: PublicKey,
+    pub extension: Extension,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct DcAddSecp256k1Scalar {
-    // FIXME
-    pub dc_add_secp256k1_scalar: (),
+pub(crate) enum Extension {
+    None,
+    DcAddSecp256k1Scalar(/* TODO */),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

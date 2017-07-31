@@ -52,7 +52,7 @@ impl PartialOrd for RunState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RunStateMachine {
-    run: u32,
+    run: RunCounter,
     state: RunState,
     kepks: VecMap<PublicKey>,
     received: BitSet,

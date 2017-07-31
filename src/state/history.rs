@@ -8,8 +8,7 @@ use super::*;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub(super) struct RunHistory {
     dc_exponential: Option<DcExponential>,
-    dc_xor: Option<DcXor>,
-    dc_add_secp256k1_scalar: Option<DcAddSecp256k1Scalar>,
+    dc_main: Option<DcMain>,
 
     revealed_symmetric_keys: VecMap<SymmetricKey>,
 }
@@ -18,8 +17,7 @@ impl RunHistory {
     pub fn new(num_peers: usize) -> Self {
         RunHistory {
             dc_exponential: None,
-            dc_xor: None,
-            dc_add_secp256k1_scalar: None,
+            dc_main: None,
 
             revealed_symmetric_keys: VecMap::with_capacity(num_peers),
         }
@@ -28,7 +26,7 @@ impl RunHistory {
     pub fn record_payload(&mut self, payload: Payload) {
         match payload {
             Payload::DcExponential(inner) => { self.dc_exponential = Some(inner) },
-            Payload::DcXor(inner) => { self.dc_xor = Some(inner) },
+            Payload::DcMain(inner) => { self.dc_main = Some(inner) },
             Payload::Reveal(Reveal { keys }) => {
                 for (i, k) in keys {
                     // Record the key and assert that none has already been recorded for that peer.
@@ -46,12 +44,8 @@ impl RunHistory {
         &self.dc_exponential
     }
 
-    pub fn dc_xor(&self) -> &Option<DcXor> {
-        &self.dc_xor
-    }
-
-    pub fn dc_add_secp256k1_scalar(&self) -> &Option<DcAddSecp256k1Scalar> {
-        &self.dc_add_secp256k1_scalar
+    pub fn dc_main(&self) -> &Option<DcMain> {
+        &self.dc_main
     }
 
     #[inline]
@@ -60,10 +54,9 @@ impl RunHistory {
             return false;
         }
         match (self.dc_exponential.is_some(),
-               self.dc_xor.is_some(),
-               self.dc_add_secp256k1_scalar.is_some()) {
-            (_, false, false) => true,
-            (true, true, _) => true,
+               self.dc_main.is_some()) {
+            (_, false) => true,
+            (true,  _) => true,
             _ => false,
         }
     }

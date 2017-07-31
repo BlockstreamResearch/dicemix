@@ -1,4 +1,5 @@
 #![feature(i128_type)]
+#![feature(discriminant_value)]
 
 extern crate rand;
 extern crate byteorder;
@@ -15,6 +16,7 @@ extern crate futures;
 extern crate lazy_static;
 extern crate bit_set;
 
+use std::mem;
 use secp256k1::Secp256k1;
 
 mod solver;
@@ -27,9 +29,13 @@ lazy_static! {
     pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
 }
 
+type ExtensionVariant = mem::Discriminant<messages::Extension>;
+
+// These types are sent over the wire, so there may be a need to change them easily.
 type SymmetricKey = [u8; 32];
 type PeerIndex = u32;
 type SequenceNum = u32;
+type RunCounter = u32;
 
 // FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
 // This can be resolved in the future using const generics, see the corresponding Rust RFC:
@@ -50,13 +56,10 @@ pub enum Variant {
     // ValueShuffleElementsSchnorrMulti.
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Options {
     variant: Variant,
-    /// Indicates the requirement for a DC-net in the group of secp256k1 scalars
-    dc_add_secp256k1_scalar: bool,
-    // TODO This could be useful for MimbleWimble.
-    // dc_add_secp256k1_point: bool
+    extension_variant: ExtensionVariant,
 }
 
 impl Options {
@@ -65,13 +68,13 @@ impl Options {
             Variant::PlainEcdsa => {
                 Self {
                     variant: Variant::PlainEcdsa,
-                    dc_add_secp256k1_scalar: false,
+                    extension_variant: mem::discriminant(&messages::Extension::None),
                 }
             },
             Variant::ValueShuffleElementsEcdsa => {
                 Self {
                     variant: Variant::ValueShuffleElementsEcdsa,
-                    dc_add_secp256k1_scalar: true,
+                    extension_variant: mem::discriminant(&messages::Extension::DcAddSecp256k1Scalar()),
                 }
             },
         }
@@ -81,8 +84,8 @@ impl Options {
         self.variant
     }
 
-    fn dc_add_secp256k1_scalar(&self) -> bool {
-        self.dc_add_secp256k1_scalar
+    fn extension_variant(&self) -> ExtensionVariant {
+        self.extension_variant
     }
 }
 
