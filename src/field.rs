@@ -1,4 +1,5 @@
 use std::ops::{Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
+use rand::{Rand, Rng};
 
 // The field size.
 const P: u128 = (1 << 127) - 1;
@@ -37,7 +38,7 @@ impl Reduce for (u128, u128) {
     #[inline]
     fn reduce_once(self) -> u128 {
         let (h, l) = self;
-        // (h, l) >> 127;
+        // shift = (h, l) >> 127
         let shift = (h << 1) | (l >> 127);
         (l & P) + shift
     }
@@ -45,20 +46,22 @@ impl Reduce for (u128, u128) {
 
 impl Fp {
     #[inline]
-    pub fn new(x: u128) -> Fp {
-        Fp(x.reduce_once_assert())
+    pub fn from_u127(x: u128) -> Self {
+        // x == P is explicitly allowed.
+        // This introduces a negligible bias towards the zero element
+        // if x is uniformly random from {0,1}^127.
+        debug_assert!(x <= P);
+        Fp(x)
+    }
+
+    #[inline]
+    pub fn from_u128_discard_msb(x: u128) -> Self {
+        Self::from_u127(x & P)
     }
 
     #[inline]
     pub fn prime() -> u128 {
         P
-    }
-}
-
-impl From<u128> for Fp {
-    #[inline]
-    fn from(x: u128) -> Self {
-        Fp::new(x)
     }
 }
 
@@ -68,6 +71,14 @@ impl From<Fp> for u128 {
         let red = x.0.reduce_once_assert();
         if red == P { 0 } else { red }
     }
+}
+
+impl Rand for Fp {
+    #[inline]
+    fn rand<R: Rng>(rng: &mut R) -> Self {
+        Self::from_u128_discard_msb(rng.gen::<u128>())
+    }
+
 }
 
 impl Neg for Fp {
