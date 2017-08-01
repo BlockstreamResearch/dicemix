@@ -1,5 +1,6 @@
 use std::ops::{Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
 use rand::{Rand, Rng};
+use serde::{Serialize, Deserialize};
 
 // The field size.
 const P: u128 = (1 << 127) - 1;
@@ -10,6 +11,58 @@ const P: u128 = (1 << 127) - 1;
 // Note that this implies that the zero element has two internal representations.
 #[derive(Clone, Copy, Default, Debug)]
 pub struct Fp(u128);
+
+impl Serialize for Fp {
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: ::serde::Serializer
+    {
+        use serde::ser::SerializeTuple;
+
+        // TODO serde currently does not support u128 natively
+        let (h, l) = as_limbs(u128::from(*self));
+        let mut tup = serializer.serialize_tuple(2)?;
+        tup.serialize_element(&h)?;
+        tup.serialize_element(&l)?;
+        tup.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Fp {
+    #[inline]
+    fn deserialize<D>(deserializer: D) -> Result<Fp, D::Error>
+        where D: ::serde::Deserializer<'de>
+    {
+        use serde::de;
+
+        // TODO serde currently does not support u128 natively
+        struct Visitor;
+        impl<'de> ::serde::de::Visitor<'de> for Visitor {
+            type Value = Fp;
+
+            fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                formatter.write_str("a pair (h, l) of u64 representing an u128 x = h||l \
+                                    such that 0 <= x < p where p = 2**127 - 1")
+            }
+
+            fn visit_seq<A>(self, mut a: A) -> Result<Fp, A::Error>
+                where A: de::SeqAccess<'de>
+            {
+                let h: u64 = a.next_element()?.ok_or(de::Error::invalid_length(0, &self))?;
+                let l: u64 = a.next_element()?.ok_or(de::Error::invalid_length(1, &self))?;
+                let x = ((h as u128) << 64) | (l as u128);
+                if x >= P {
+                    let unexp = de::Unexpected::Other("an u128 greater than or equal to p \
+                                                      where p = 2**127 - 1");
+                    return Err(de::Error::invalid_value(unexp, &self));
+                }
+                Ok(Fp::from_u127(x))
+            }
+        }
+
+        deserializer.deserialize_tuple(2, Visitor { })
+    }
+}
 
 #[inline]
 fn as_limbs(x: u128) -> (u64, u64) {
