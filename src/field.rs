@@ -52,8 +52,8 @@ impl<'de> Deserialize<'de> for Fp {
                 let l: u64 = a.next_element()?.ok_or(de::Error::invalid_length(1, &self))?;
                 let x = ((h as u128) << 64) | (l as u128);
                 if x >= P {
-                    let unexp = de::Unexpected::Other("an u128 greater than or equal to p \
-                                                      where p = 2**127 - 1");
+                    let unexp_str = format!("the u128 with value {:x}", x);
+                    let unexp = de::Unexpected::Other(&unexp_str);
                     return Err(de::Error::invalid_value(unexp, &self));
                 }
                 Ok(Fp::from_u127(x))
