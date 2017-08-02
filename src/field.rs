@@ -1,4 +1,5 @@
 use std::ops::{Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
+use std::cmp::Ordering;
 use rand::{Rand, Rng};
 use serde::{Serialize, Deserialize};
 
@@ -208,6 +209,20 @@ impl PartialEq for Fp {
 }
 
 impl Eq for Fp {}
+
+impl PartialOrd for Fp {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        u128::from(*self).partial_cmp(&u128::from(*other))
+    }
+}
+
+impl Ord for Fp {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(&other).unwrap()
+    }
+}
 
 #[cfg(test)]
 mod tests {
