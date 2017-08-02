@@ -9,7 +9,7 @@ fn main() {
     }
 
     conf.cpp(true)
-        .file("src/solver/solver_flint.cpp")
+        .file("src/solver/solver_flint/solver_flint.cpp")
         .compile("libsolver_flint.a");
 
     // Tell rustc to link against flint and gmp
