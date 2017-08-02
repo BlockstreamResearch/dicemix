@@ -12,6 +12,7 @@
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Signature;
 use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
+use field::Fp;
 
 /// A protocol message
 ///
@@ -48,7 +49,7 @@ pub(crate) struct KeyExchange {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub(crate) struct DcExponential {
     pub commitment: [u8; 32],
-    pub dc_exp: Vec<[u8; 16]>,
+    pub dc_exp: Vec<Fp>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
