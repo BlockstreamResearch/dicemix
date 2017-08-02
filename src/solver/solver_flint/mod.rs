@@ -39,8 +39,6 @@ impl Solve for Solver {
         let power_sums_hex_ptrs : Vec<_> =
             power_sums_hex.iter().map(|x| x.as_ptr()).collect();
 
-        println!("{:?}", power_sums_hex);
-
         let ret;
         unsafe {
             ret = ffi::solve(out_messages_hex_ptrs.as_ptr() as *const *mut c_char,

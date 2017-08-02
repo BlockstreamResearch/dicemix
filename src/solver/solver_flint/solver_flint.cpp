@@ -69,21 +69,21 @@ int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const vector<fmpzxx>& 
         poly.set_coeff(n - i - 1, coeff[i]);
     }
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(STANDALONE)
     cout << "Polynomial: " << endl; print(poly); cout << endl << endl;
 #endif
 
     // Factor
     factors.set_factor_kaltofen_shoup(poly);
 
-#ifdef DEBUG
+#if defined(DEBUG) && defined(STANDALONE)
     cout << "Factors: " << endl; print(factors); cout << endl << endl;
 #endif
 
     vector<fmpzxx>::size_type n_roots = 0;
     for (int i = 0; i < factors.size(); i++) {
         if (factors.p(i).degree() != 1 || factors.p(i).lead() != 1) {
-#ifdef DEBUG
+#if defined(DEBUG) && defined(STANDALONE)
             cout << "Non-monic factor." << endl;
 #endif
             return RET_INVALID;
@@ -91,7 +91,7 @@ int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const vector<fmpzxx>& 
         n_roots += factors.exp(i);
     }
     if (n_roots != n) {
-#ifdef DEBUG
+#if defined(DEBUG) && defined(STANDALONE)
         cout << "Not enough roots." << endl;
 #endif
         return RET_INVALID;
