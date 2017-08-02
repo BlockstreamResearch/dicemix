@@ -1,5 +1,4 @@
 #include <vector>
-#include <algorithm>
 #include <cstring>
 
 #include <flint/flint.h>
@@ -13,7 +12,7 @@ using namespace flint;
 #define RET_INTERNAL_ERROR  100
 #define RET_INPUT_ERROR     101
 
-int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const fmpzxx& my_message, const vector<fmpzxx>& sums) {
+int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const vector<fmpzxx>& sums) {
     vector<fmpzxx>::size_type n = sums.size();
     if (n < 2) {
 #ifdef DEBUG
@@ -74,14 +73,6 @@ int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const fmpzxx& my_messa
     cout << "Polynomial: " << endl; print(poly); cout << endl << endl;
 #endif
 
-    // Check if our message is a root
-    if (poly(my_message) != 0) {
-#ifdef DEBUG
-        cout << "Message missing." << endl;
-#endif
-        return RET_INVALID;
-    }
-
     // Factor
     factors.set_factor_kaltofen_shoup(poly);
 
@@ -108,24 +99,12 @@ int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const fmpzxx& my_messa
 
     // Extract roots
     int k = 0;
-    bool found = false;
     for (int i = 0; i < factors.size(); i++) {
         for (int j = 0; j < factors.exp(i); j++) {
             messages[k] = factors.p(i).get_coeff(0).negmod(p);
-            found |= messages[k] == my_message;
             k++;
         }
     }
-
-    // Sanity check
-    if (!found) {
-#ifdef DEBUG
-        cout << "Bug: Our message is a root but not in list of roots." << endl;
-#endif
-        return RET_INTERNAL_ERROR;
-    }
-
-    sort(messages.begin(), messages.end());
 
     return 0;
 }
@@ -163,7 +142,7 @@ int main(int argc, char* argv[])
 }
 #endif
 
-extern "C" int solve(char** const out_messages, const char* prime, const char* my_message, const char** const sums, size_t n) {
+extern "C" int solve(char** const out_messages, const char* prime, const char** const sums, size_t n) {
     // Exceptions should never propagate to C (undefined behavior).
     try {
         fmpzxx p;
@@ -174,10 +153,6 @@ extern "C" int solve(char** const out_messages, const char* prime, const char* m
 
         // operator= is hard-coded to base 10 and does not check for errors
         if (fmpz_set_str(p._fmpz(), prime, 16)) {
-            return RET_INPUT_ERROR;
-        }
-
-        if (fmpz_set_str(m._fmpz(), my_message, 16)) {
             return RET_INPUT_ERROR;
         }
 
@@ -193,7 +168,7 @@ extern "C" int solve(char** const out_messages, const char* prime, const char* m
             }
         }
 
-        int ret = solve_impl(messages, p, m, s);
+        int ret = solve_impl(messages, p, s);
 
         if (ret == 0) {
             for (size_t i = 0; i < n; i++) {
