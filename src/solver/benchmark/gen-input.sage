@@ -11,7 +11,7 @@ brainpoolP512r1_prime = 0xAADD9DB8DBE9C48B3FD4E6AE33C9FC07CB308DB3B3C9D20ED6639C
 
 primes = {
     64: 2**64 - 59,
-   128: 2**128 - 159,
+   128: 2**127 - 1,
    192: 2**192 - 237,
    256: secp256k1_prime,
    320: 2**320 - 197,
