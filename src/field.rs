@@ -273,6 +273,14 @@ mod tests {
     }
 
     #[test]
+    fn ord() {
+        assert!(Fp(0) < Fp(1));
+        assert!(Fp(17) > Fp(0));
+        assert!(Fp(P) < Fp(1));
+        assert!(Fp(23) > Fp(P));
+    }
+
+    #[test]
     fn assign() {
         let mut a = Fp(17);
 
