@@ -92,28 +92,11 @@ mod tests {
     use super::*;
     use secp256k1::key::SecretKey;
 
-    #[test]
-    fn roundtrip_serde_bincode() {
-        // Create secret key, public key, message digest and signature
-        let slice: [u8; 32] = [0xab; 32];
-        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
-        let ke_pk = PublicKey::from_secret_key(&::SECP256K1, &sk).unwrap();
-        assert!(ke_pk.is_valid());
-        let slice: [u8; 32] = [0x01; 32];
-        let msg = ::secp256k1::Message::from_slice(&slice).unwrap();
-        let sig = ::SECP256K1.sign(&msg, &sk).unwrap();
-
-        // Create message
+    #[cfg(test)]
+    fn roundtrip_serde_bincode(payload: Payload) {
         let msg1 = Message {
-            header: Header {
-                peer_index: 17,
-                session_id: SessionId([56; 32]),
-                sequence_num: 14,
-                signature: sig,
-            },
-            payload: Payload::KeyExchange(KeyExchange {
-                ke_pk: ke_pk,
-            }),
+            header: dummy_header(),
+            payload: payload,
         };
 
         // Write message
@@ -127,5 +110,46 @@ mod tests {
         let msg2 = read.wait().next().unwrap().unwrap();
 
         assert_eq!(msg1, msg2);
+    }
+
+    #[cfg(test)]
+    fn dummy_header() -> Header {
+        // Create secret key, public key, message digest and signature
+        let slice: [u8; 32] = [0xab; 32];
+        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
+        let slice: [u8; 32] = [0x01; 32];
+        let sign_msg = ::secp256k1::Message::from_slice(&slice).unwrap();
+        let sig = ::SECP256K1.sign(&sign_msg, &sk).unwrap();
+
+        Header {
+            peer_index: 2,
+            session_id: SessionId([56; 32]),
+            sequence_num: 14,
+            signature: sig,
+        }
+    }
+
+    #[test]
+    fn roundtrip_keyexchange() {
+        let slice: [u8; 32] = [0x4f; 32];
+        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
+        let ke_pk = PublicKey::from_secret_key(&::SECP256K1, &sk).unwrap();
+        assert!(ke_pk.is_valid());
+
+        let payload = Payload::KeyExchange(KeyExchange {
+            ke_pk: ke_pk,
+        });
+
+        roundtrip_serde_bincode(payload);
+    }
+
+    #[test]
+    fn roundtrip_dcexponential() {
+        let payload = Payload::DcExponential(DcExponential {
+            commitment: [9; 32],
+            dc_exp: vec![Fp::from_u127(Fp::prime()), Fp::from_u127(0), Fp::from_u127(656)],
+        });
+
+        roundtrip_serde_bincode(payload);
     }
 }
