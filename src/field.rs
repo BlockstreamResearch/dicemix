@@ -122,8 +122,7 @@ impl Fp {
 impl From<Fp> for u128 {
     #[inline]
     fn from(x: Fp) -> u128 {
-        let red = x.0.reduce_once_assert();
-        if red == P { 0 } else { red }
+        if x.0 == P { 0 } else { x.0 }
     }
 }
 
