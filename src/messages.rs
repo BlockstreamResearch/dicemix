@@ -28,6 +28,11 @@ pub(crate) struct Header {
     pub session_id: SessionId,
     pub peer_index: PeerIndex,
     pub sequence_num: SequenceNum,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub(crate) struct SignedMessage {
+    pub message: Message,
     pub signature: Signature,
 }
 
@@ -97,7 +102,7 @@ mod tests {
         let msg1 = Message {
             header: dummy_header(),
             payload: payload,
-        };
+        }.add_signature();
 
         // Write message
         let pipe = Cursor::new(Vec::new());
@@ -110,23 +115,6 @@ mod tests {
         let msg2 = read.wait().next().unwrap().unwrap();
 
         assert_eq!(msg1, msg2);
-    }
-
-    #[cfg(test)]
-    fn dummy_header() -> Header {
-        // Create secret key, public key, message digest and signature
-        let slice: [u8; 32] = [0xab; 32];
-        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
-        let slice: [u8; 32] = [0x01; 32];
-        let sign_msg = ::secp256k1::Message::from_slice(&slice).unwrap();
-        let sig = ::SECP256K1.sign(&sign_msg, &sk).unwrap();
-
-        Header {
-            peer_index: 2,
-            session_id: SessionId([56; 32]),
-            sequence_num: 14,
-            signature: sig,
-        }
     }
 
     #[test]
@@ -151,5 +139,28 @@ mod tests {
         });
 
         roundtrip_serde_bincode(payload);
+    }
+
+    #[cfg(test)]
+    fn dummy_header() -> Header {
+        Header {
+            peer_index: 2,
+            session_id: SessionId([56; 32]),
+            sequence_num: 14,
+        }
+    }
+
+    #[cfg(test)]
+    fn sign(msg: Message) -> SignedMessage {
+        // Create secret key, public key, message digest and signature
+        let slice: [u8; 32] = [0xab; 32];
+        let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
+        let slice: [u8; 32] = [0x01; 32];
+        let digest = ::secp256k1::Message::from_slice(&slice).unwrap();
+        let sig = ::SECP256K1.sign(&digest, &sk).unwrap();
+        SignedMessage {
+            message: msg,
+            signature: sig,
+        }
     }
 }
