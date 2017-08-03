@@ -102,7 +102,23 @@ impl RunStateMachine {
         }
     }
 
-    fn process(&self, payload: Payload) -> Option<Payload> {
+    fn process_message(&mut self, msg: Message) -> Option<Payload> {
+        // TODO Reject messages with wrong session id
+        // TODO Reject messages with wrong sequence number
+        // TODO Reject messages with invalid signature
+
+        // The message has a correct signature and is intended for this state of this session.
+        // So we can record it.
+        let first_from_peer = self.received.insert(msg.header.peer_index as usize);
+
+        // Reject the message if we have recorded a message from this peer already.
+        if !first_from_peer {
+            return None;
+        }
+        self.process_payload(msg.payload)
+    }
+
+    fn process_payload(&self, payload: Payload) -> Option<Payload> {
         match(self.state, payload) {
             (RunState::DcProcess(DcPhase::Exponential), Payload::DcExponential(msg)) => {
                 unimplemented!()
