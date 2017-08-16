@@ -86,9 +86,10 @@ mod tests {
     use tokio_io::codec::length_delimited;
     use futures::sink::Sink;
     use futures::{Future, Stream};
+    use secp256k1::key::SecretKey;
+    use bincode;
 
     use super::*;
-    use secp256k1::key::SecretKey;
 
     #[test]
     fn roundtrip_keyexchange() {
@@ -105,7 +106,9 @@ mod tests {
     }
 
     #[cfg(test)]
-    fn roundtrip_serde_bincode(payload: Payload) {
-        // TODO
+    fn roundtrip_serde_bincode(payload1: Payload) {
+        let ser = bincode::serialize(&payload1, bincode::Infinite).unwrap();
+        let payload2 : Payload = bincode::deserialize(&ser).unwrap();
+        assert_eq!(payload1, payload2);
     }
 }
