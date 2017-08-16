@@ -104,10 +104,6 @@ impl RunStateMachine {
     }
 
     fn process_message(&mut self, msg: Message) -> Option<Payload> {
-        // TODO Reject messages with wrong session id
-        // TODO Reject messages with wrong sequence number
-        // TODO Reject messages with invalid signature
-
         // The message has a correct signature and is intended for this state of this session.
         // So we can record it.
         let first_from_peer = self.received.insert(msg.header.peer_index as usize);
