@@ -9,14 +9,15 @@ rand = { version = "0.3", features = ["i128_support"] }
 byteorder = "1"
 secp256k1 = "0.7.1"
 tokio-io = "0.1"
-tokio-serde-bincode = { git = "https://github.com/alexcrichton/tokio-serde-bincode" }
 bytes = "0.4"
 serde = "1.0"
 serde_derive = "1.0"
+bincode = "0.8.0"
 vec_map = "0.8.0"
 futures = "0.1"
 lazy_static = "0.2"
 bit-set = "0.4.0"
+blake2 = "0.6.1"
 
 [build-dependencies]
 gcc = "0.3"

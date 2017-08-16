@@ -7,9 +7,10 @@ use bit_set::BitSet;
 use messages::*;
 use super::*;
 use self::history::*;
+use self::peer::Peer;
 
 mod history;
-mod peer;
+pub mod peer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum DcPhase {

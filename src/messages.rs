@@ -18,26 +18,20 @@ use field::Fp;
 ///
 /// Protocol messages consist of a header and a payload.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct Message {
+pub struct Message {
     pub header: Header,
     pub payload: Payload,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct Header {
-    pub session_id: SessionId,
+pub struct Header {
+    pub session_id: SessionId, // just for consistency checks
     pub peer_index: PeerIndex,
-    pub sequence_num: SequenceNum,
+    pub sequence_num: SequenceNum, // just for consistency checks
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct SignedMessage {
-    pub message: Message,
-    pub signature: Signature,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) enum Payload {
+pub enum Payload {
     KeyExchange(KeyExchange),
     DcExponential(DcExponential),
     DcMain(DcMain),
@@ -47,18 +41,18 @@ pub(crate) enum Payload {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct KeyExchange {
+pub struct KeyExchange {
     pub ke_pk: PublicKey,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct DcExponential {
+pub struct DcExponential {
     pub commitment: [u8; 32],
     pub dc_exp: Vec<Fp>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct DcMain {
+pub struct DcMain {
     pub ok: bool,
     pub dc_xor: Vec<Vec<u8>>,
     pub ke_pk: PublicKey,
@@ -66,13 +60,13 @@ pub(crate) struct DcMain {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) enum Extension {
+pub enum Extension {
     None,
     DcAddSecp256k1Scalar(/* TODO */),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct Blame {
+pub struct Blame {
     pub ke_sk: SecretKey,
 }
 
@@ -82,7 +76,7 @@ pub struct Confirm {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) struct Reveal {
+pub struct Reveal {
     pub keys: Vec<(PeerIndex, SymmetricKey)>,
 }
 
@@ -155,8 +149,9 @@ mod tests {
         // Create secret key, public key, message digest and signature
         let slice: [u8; 32] = [0xab; 32];
         let sk = SecretKey::from_slice(&::SECP256K1, &slice).unwrap();
-        let slice: [u8; 32] = [0x01; 32];
-        let digest = ::secp256k1::Message::from_slice(&slice).unwrap();
+        // TODO woha, this is ugly
+        // maybe https://docs.rs/tokio-io/0.1/tokio_io/codec/trait.Decoder.html
+        let digest = ::secp256k1::Message::from_slice(msg.serialize()).unwrap();
         let sig = ::SECP256K1.sign(&digest, &sk).unwrap();
         SignedMessage {
             message: msg,

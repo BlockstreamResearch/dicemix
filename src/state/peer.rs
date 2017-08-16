@@ -31,4 +31,8 @@ impl Peer {
     pub fn shift_keys(&mut self) {
         self.kepks.pop_front().unwrap();
     }
+
+    pub fn ltvk(&self) -> &PublicKey {
+        &self.ltvk
+    }
 }

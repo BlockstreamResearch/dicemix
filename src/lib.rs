@@ -6,15 +6,17 @@ extern crate byteorder;
 extern crate secp256k1;
 extern crate bytes;
 extern crate tokio_io;
-extern crate tokio_serde_bincode;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate bincode;
 extern crate vec_map;
+#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;
 extern crate bit_set;
+extern crate blake2;
 
 use std::mem;
 use secp256k1::Secp256k1;
@@ -24,6 +26,7 @@ mod rng;
 mod field;
 mod messages;
 mod state;
+mod io;
 
 lazy_static! {
     pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
@@ -33,6 +36,7 @@ type ExtensionVariant = mem::Discriminant<messages::Extension>;
 
 // These types are sent over the wire, so there may be a need to change them easily.
 type SymmetricKey = [u8; 32];
+type SessionId = [u8; 32];
 type PeerIndex = u32;
 type SequenceNum = u32;
 type RunCounter = u32;
@@ -42,9 +46,6 @@ type RunCounter = u32;
 // https://github.com/rust-lang/rfcs/pull/2000/files
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct PeerId([u8; 32], [u8; 32]);
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct SessionId([u8; 32]);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Variant {
