@@ -56,7 +56,7 @@ impl PartialOrd for RunState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RunStateMachine {
-    run: RunCounter,
+    run: u32,
     state: RunState,
     kepks: VecMap<PublicKey>,
     received: BitSet,
@@ -66,7 +66,7 @@ struct RunStateMachine {
 }
 
 impl RunStateMachine {
-    fn new(&mut self, run: RunCounter, kepks: VecMap<PublicKey>) -> Self {
+    fn new(&mut self, run: u32, kepks: VecMap<PublicKey>) -> Self {
         let num_peers = kepks.len();
         let new = Self {
             run: 0,

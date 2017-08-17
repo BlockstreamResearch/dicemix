@@ -39,7 +39,6 @@ type SymmetricKey = [u8; 32];
 type SessionId = [u8; 32];
 type PeerIndex = u32;
 type SequenceNum = u32;
-type RunCounter = u32;
 
 // FIXME We store the peer ID in two [u8; 32], as this allows us to derive various traits.
 // This can be resolved in the future using const generics, see the corresponding Rust RFC:
