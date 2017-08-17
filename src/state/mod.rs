@@ -28,8 +28,9 @@ enum RunState {
 impl PartialOrd for RunState {
     fn partial_cmp(&self, other: &RunState) -> Option<Ordering> {
         // This is ugly but not uglier than using std::intrinsics::discriminant_value,
-        // which does guarantee a proper ordering and would force us to use debug assertions
-        // anyway. Note that std::mem::Discriminant<T> does not implement PartialOrd either,
+        // which does not guarantee a proper ordering and consequently would force us to use
+        // debug assertions to make sure that the compiler actually uses proper ordering
+        // internally. Note that std::mem::Discriminant<T> does not implement PartialOrd either,
         // because it relies on std::intrinsics::discriminant_value.
         // If this changes in the future, we can replace this function.
         #[inline]
