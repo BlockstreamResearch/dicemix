@@ -5,31 +5,29 @@ use super::*;
 pub struct Peer {
     peer_id: PeerId,
     ltvk: PublicKey,
-    kepks: VecDeque<PublicKey>,
+    next_kepk: Option<PublicKey>,
     history: RunHistory,
 }
 
 impl Peer {
-    pub fn new(peer_id: PeerId, ltvk: PublicKey, num_peers: usize) -> Self {
+    pub fn new(peer_id: PeerId, ltvk: PublicKey, next_kepk: PublicKey, num_peers: usize) -> Self {
         Peer {
             peer_id: peer_id,
             ltvk: ltvk,
-            kepks: VecDeque::with_capacity(2),
+            next_kepk: Some(next_kepk),
             history: RunHistory::new(num_peers),
         }
     }
 
     pub fn push_kepk(&mut self, kepk: PublicKey) {
-        self.kepks.push_back(kepk);
-        assert!(self.kepks.len() <= 2);
+        assert!(self.next_kepk.is_none());
+        self.next_kepk = Some(kepk);
     }
 
-    pub fn get_kepk(&self) -> &PublicKey {
-        self.kepks.get(0).unwrap()
-    }
-
-    pub fn shift_keys(&mut self) {
-        self.kepks.pop_front().unwrap();
+    pub fn pop_kepk(&mut self) -> PublicKey {
+        let was = self.next_kepk.unwrap();
+        self.next_kepk = None;
+        was
     }
 
     pub fn ltvk(&self) -> &PublicKey {
