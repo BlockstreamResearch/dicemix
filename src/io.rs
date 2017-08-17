@@ -143,9 +143,11 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
                         let digest = secp256k1::Message::from_slice(&hasher.result()).unwrap();
                         // TODO These "as" casts
                         //   * assume that usize is at least u32 and
-                        //   * are ugly because they will be everywhere.
-                        // The underlying stream should cast safely to usize (using From)
+                        //   * are ugly because they will be everywhere
+                        //     (but being explicit may be a good idea)
+                        // The underlying stream could cast safely to usize
                         // as soon as it receives a message.
+                        // See https://github.com/rust-lang/rust/pull/29220 .
                         match ::SECP256K1.verify(&digest, &sig, &self.ltvks[peer_index as usize]) {
                             Err(err) => {
                                 // TODO log
