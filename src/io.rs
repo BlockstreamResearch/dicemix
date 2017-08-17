@@ -33,7 +33,7 @@ use ::{SessionId, PeerIndex, SequenceNum};
 
 const MAGIC_MESSAGE_PREFIX : &[u8; 32] = b"DICEMIX_SIGNED_MESSAGE__________";
 
-pub enum IncomingMessage {
+pub enum IncomingPayload {
     Valid(Payload),
     Invalid,
 }
@@ -41,7 +41,7 @@ pub enum IncomingMessage {
 /// Wrapper for FramedRead that parses and authenticates messages.
 ///
 /// Errors in the stream indicate always I/O errors.
-/// Invalid messages are indicated by a stream item with `IncomingMessage::Invalid`
+/// Invalid messages are indicated by a stream item with `IncomingPayload::Invalid`
 /// as second component.
 pub struct ReadAuthenticatedPayloads<'a, T: Stream<Item = (PeerIndex, Bytes)>> {
     inner: T,
@@ -83,7 +83,7 @@ impl<'a, T> ReadAuthenticatedPayloads<'a, T>
 impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
     where T: Stream<Item = (PeerIndex, Bytes), Error = io::Error>,
 {
-    type Item = (PeerIndex, IncomingMessage);
+    type Item = (PeerIndex, IncomingPayload);
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -91,7 +91,7 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
             None => Ok(Async::Ready(None)),
             Some((peer_index, bytes)) => {
                 // Return value indicating an invalid message
-                let invalid = Ok(Async::Ready(Some((peer_index, IncomingMessage::Invalid))));
+                let invalid = Ok(Async::Ready(Some((peer_index, IncomingPayload::Invalid))));
 
                 // Check size
                 if bytes.len() < secp256k1::constants::COMPACT_SIGNATURE_SIZE {
@@ -152,7 +152,7 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
                                 invalid
                             },
                             Ok(()) => {
-                                Ok(Async::Ready(Some((peer_index, IncomingMessage::Valid(pay)))))
+                                Ok(Async::Ready(Some((peer_index, IncomingPayload::Valid(pay)))))
                             },
                         }
                     }

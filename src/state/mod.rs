@@ -7,6 +7,7 @@ use bit_set::BitSet;
 use messages::*;
 use super::*;
 use self::history::*;
+use io::IncomingPayload;
 
 mod history;
 mod peer;
@@ -103,31 +104,29 @@ impl RunStateMachine {
         }
     }
 
-    fn process_message(&mut self, msg: Message) -> Option<Payload> {
+    fn apply_incoming_message(&mut self, incoming: (PeerIndex, IncomingPayload)) {
+        let (peer_index, incoming_payload) = incoming;
+
         // The message has a correct signature and is intended for this state of this session.
         // So we can record it.
-        let first_from_peer = self.received.insert(msg.header.peer_index as usize);
+        let first_from_peer = self.received.insert(peer_index as usize);
         // The stream should never send us two messages from the same peer in the same round.
         debug_assert!(first_from_peer);
 
-        self.process_payload(msg.payload)
-    }
-
-    fn process_payload(&self, payload: Payload) -> Option<Payload> {
-        match(self.state, payload) {
-            (RunState::DcProcess(DcPhase::Exponential), Payload::DcExponential(msg)) => {
+        match(self.state, incoming_payload) {
+            (RunState::DcProcess(DcPhase::Exponential), IncomingPayload::Valid(Payload::DcExponential(pay))) => {
                 unimplemented!()
             },
-            (RunState::DcProcess(DcPhase::Main), Payload::DcMain(msg)) => {
+            (RunState::DcProcess(DcPhase::Main), IncomingPayload::Valid(Payload::DcMain(pay))) => {
                 unimplemented!()
             },
-            (RunState::DcReveal(phase), Payload::Reveal(msg)) => {
+            (RunState::DcReveal(phase), IncomingPayload::Valid(Payload::Reveal(pay))) => {
                 unimplemented!()
             },
-            (RunState::Blame, Payload::Blame(msg)) => {
+            (RunState::Blame, IncomingPayload::Valid(Payload::Blame(pay))) => {
                 unimplemented!()
             },
-            (RunState::Confirm, Payload::Confirm(msg)) => {
+            (RunState::Confirm, IncomingPayload::Valid(Payload::Confirm(pay))) => {
                 unimplemented!()
             },
             _ => {
