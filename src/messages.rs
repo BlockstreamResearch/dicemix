@@ -10,7 +10,6 @@
 //! its contained types such as `Header` and `Payload` are public.
 
 pub use secp256k1::key::{PublicKey, SecretKey};
-use secp256k1::Signature;
 use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
 use field::Fp;
 
@@ -82,10 +81,6 @@ pub struct Reveal {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-    use tokio_io::codec::length_delimited;
-    use futures::sink::Sink;
-    use futures::{Future, Stream};
     use secp256k1::key::SecretKey;
     use bincode;
 
