@@ -9,7 +9,7 @@
 //! `PublicKey` and `SecretKey` fields). Consequently, all fields of `Message` and all fields of
 //! its contained types such as `Header` and `Payload` are public.
 
-use secp256k1::key::{PublicKey, SecretKey};
+pub use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::Signature;
 use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
 use field::Fp;

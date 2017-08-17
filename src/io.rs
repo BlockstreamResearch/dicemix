@@ -29,7 +29,7 @@ use secp256k1;
 use blake2::{Blake2s, Digest};
 use vec_map::VecMap;
 
-use messages::{Message, Header, Payload};
+use messages::{Message, Header, Payload, PublicKey};
 use ::{SessionId, PeerIndex, SequenceNum};
 use state::peer::Peer;
 
@@ -40,9 +40,6 @@ pub enum IncomingMessage {
     Invalid,
 }
 
-// TODO We should export access to set_max_frame_length() of the underlying
-// length_delimited::FramedRead (and actually assume that it is of this type).
-
 /// Wrapper for FramedRead that parses and authenticates messages.
 ///
 /// Errors in the stream indicate always I/O errors.
@@ -50,23 +47,39 @@ pub enum IncomingMessage {
 /// as second component.
 pub struct ReadAuthenticatedPayloads<'a, T: Stream<Item = (PeerIndex, Bytes)>> {
     inner: T,
-    peers: &'a VecMap<Peer>,
-    next_sequence_num: Vec<SequenceNum>,
+    ltvks: &'a Vec<PublicKey>,
+    sequence_num: SequenceNum,
 }
 
 impl<'a, T> ReadAuthenticatedPayloads<'a, T>
     where T: Stream<Item = (PeerIndex, Bytes)>
 {
     /// Creates a new `ReadAuthenticatedPayloads`.
-    fn new(inner: T, peers: &'a VecMap<Peer>) -> Self {
+    ///
+    /// The underlying stream is responsible for handling messages
+    ///   * from excluded peers and
+    ///   * from peers that have sent a message already in this round,
+    /// e.g., by returning an error or just ignoring the message.
+    // TODO This means we need to forward the call to advance_round() to the underlying stream.
+    // Also there should be an exclude() function, and we need to delegate calls to this function
+    // to the underlying stream, too.
+    fn new(inner: T, ltvks: &'a Vec<PublicKey>) -> Self {
         Self {
             inner: inner,
-            peers: peers,
-            next_sequence_num: vec![0; peers.len()],
+            ltvks: ltvks,
+            sequence_num: 0,
         }
     }
-}
 
+    // TODO We should export access to set_max_frame_length() of the underlying
+    // length_delimited::FramedRead (and actually assume that it is of this type).
+    // First, we need an adapter Stream<PeerIndex, T>, which relays a constant PeerIndex
+    // and delegates every call to an inner Stream<T>.
+    fn advance_round(&mut self, /* max_frame_length: usize */) {
+        self.sequence_num += 1;
+        // self.inner.set_max_frame_length(max_frame_length);
+    }
+}
 impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
     where T: Stream<Item = (PeerIndex, Bytes), Error = io::Error>,
 {
@@ -98,29 +111,18 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
                 let mut hasher = new_prefixed_hasher();
                 hasher.input(&bytes);
 
-                // TODO These "as" casts
-                //   * assume that usize is at least u32 and
-                //   * are ugly because they are everywhere.
-                // We should cast safely to usize (using From) as soon as we receive a message.
-                let peer_opt = self.peers.get(peer_index as usize);
-                match (msg_result, sig_result, peer_opt) {
-                    (Err(err), _, _) => {
+                match (msg_result, sig_result) {
+                    (Err(err), _) => {
                         // TODO log: cannot parse message
                         invalid
                     },
-                    (_, Err(err), _) => {
+                    (_, Err(err)) => {
                         // TODO log: cannot deserialize signature
                         invalid
                     },
-                    (_, _, None) => {
-                        debug_assert!(peer_index as usize <= self.next_sequence_num.len());
-                        // TODO log: format!("excluded peer index {})", peer_index)
-                        invalid
-                    },
-                    (Ok(Message { header: hdr, payload: pay }), Ok(sig), Some(peer)) => {
+                    (Ok(Message { header: hdr, payload: pay }), Ok(sig)) => {
                         // Check sequence number
-                        let expected = self.next_sequence_num[peer_index as usize];
-                        if hdr.sequence_num != expected {
+                        if hdr.sequence_num != self.sequence_num {
                             // TODO log: format!("wrong sequence number (got {}, expected {})", hdr.sequence_num, expected);
                             return invalid;
                         }
@@ -133,13 +135,17 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
 
                         // Verify signature
                         let digest = secp256k1::Message::from_slice(&hasher.result()).unwrap();
-                        match ::SECP256K1.verify(&digest, &sig, &peer.ltvk()) {
+                        // TODO These "as" casts
+                        //   * assume that usize is at least u32 and
+                        //   * are ugly because they will be everywhere.
+                        // The underlying stream should cast safely to usize (using From)
+                        // as soon as it receives a message.
+                        match ::SECP256K1.verify(&digest, &sig, &self.ltvks[peer_index as usize]) {
                             Err(err) => {
                                 // TODO log
                                 invalid
                             },
                             Ok(()) => {
-                                self.next_sequence_num[peer_index as usize] += 1;
                                 Ok(Async::Ready(Some((peer_index, IncomingMessage::Valid(pay)))))
                             },
                         }

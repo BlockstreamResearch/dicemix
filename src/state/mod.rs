@@ -107,11 +107,9 @@ impl RunStateMachine {
         // The message has a correct signature and is intended for this state of this session.
         // So we can record it.
         let first_from_peer = self.received.insert(msg.header.peer_index as usize);
+        // The stream should never send us two messages from the same peer in the same round.
+        debug_assert!(first_from_peer);
 
-        // Reject the message if we have recorded a message from this peer already.
-        if !first_from_peer {
-            return None;
-        }
         self.process_payload(msg.payload)
     }
 
