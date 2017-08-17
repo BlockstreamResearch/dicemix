@@ -27,11 +27,9 @@ use bytes::Bytes;
 use bincode;
 use secp256k1;
 use blake2::{Blake2s, Digest};
-use vec_map::VecMap;
 
-use messages::{Message, Header, Payload, PublicKey};
+use messages::{Message, Payload, PublicKey};
 use ::{SessionId, PeerIndex, SequenceNum};
-use state::peer::Peer;
 
 const MAGIC_MESSAGE_PREFIX : &[u8; 32] = b"DICEMIX_SIGNED_MESSAGE__________";
 
@@ -47,6 +45,7 @@ pub enum IncomingMessage {
 /// as second component.
 pub struct ReadAuthenticatedPayloads<'a, T: Stream<Item = (PeerIndex, Bytes)>> {
     inner: T,
+    session_id: SessionId,
     ltvks: &'a Vec<PublicKey>,
     sequence_num: SequenceNum,
 }
@@ -63,9 +62,10 @@ impl<'a, T> ReadAuthenticatedPayloads<'a, T>
     // TODO This means we need to forward the call to advance_round() to the underlying stream.
     // Also there should be an exclude() function, and we need to delegate calls to this function
     // to the underlying stream, too.
-    fn new(inner: T, ltvks: &'a Vec<PublicKey>) -> Self {
+    fn new(inner: T, session_id: SessionId, ltvks: &'a Vec<PublicKey>) -> Self {
         Self {
             inner: inner,
+            session_id: session_id,
             ltvks: ltvks,
             sequence_num: 0,
         }
@@ -121,6 +121,12 @@ impl<'a, T> Stream for ReadAuthenticatedPayloads<'a, T>
                         invalid
                     },
                     (Ok(Message { header: hdr, payload: pay }), Ok(sig)) => {
+                        // Check session ID
+                        if hdr.session_id != self.session_id {
+                            // TODO log: format!("unexpected session ID {})", hdr.session_id)
+                            return invalid;
+                        }
+
                         // Check sequence number
                         if hdr.sequence_num != self.sequence_num {
                             // TODO log: format!("wrong sequence number (got {}, expected {})", hdr.sequence_num, expected);

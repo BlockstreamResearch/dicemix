@@ -10,7 +10,7 @@ use self::history::*;
 use self::peer::Peer;
 
 mod history;
-pub mod peer;
+mod peer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum DcPhase {
