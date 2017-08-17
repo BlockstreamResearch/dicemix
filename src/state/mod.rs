@@ -6,10 +6,8 @@ use bit_set::BitSet;
 
 use messages::*;
 use super::*;
-use self::history::*;
 use io::IncomingPayload;
 
-mod history;
 mod peer;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
