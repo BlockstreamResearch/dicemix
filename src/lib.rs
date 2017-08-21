@@ -21,6 +21,8 @@ extern crate blake2;
 use std::mem;
 use secp256k1::Secp256k1;
 
+pub use messages::PublicKey;
+
 mod solver;
 mod rng;
 mod field;
@@ -35,6 +37,7 @@ lazy_static! {
 type ExtensionVariant = mem::Discriminant<messages::Extension>;
 
 // These types are sent over the wire, so there may be a need to change them easily.
+type Commitment = [u8; 32];
 type SymmetricKey = [u8; 32];
 type SessionId = [u8; 32];
 type PeerIndex = u32;

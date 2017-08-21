@@ -1,14 +1,58 @@
 use std::cmp::Ordering;
-use std::collections::VecDeque;
+use std::iter;
 use secp256k1::key::PublicKey;
-use vec_map::VecMap;
 use bit_set::BitSet;
 
 use messages::*;
 use super::*;
 use io::IncomingPayload;
 
-mod peer;
+use self::history::RunHistory;
+
+mod history;
+
+type PeerVec<T> = Vec<Option<T>>;
+
+/// Static public information about a peer
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Peer {
+    peer_id: PeerId,
+    ltvk: PublicKey,
+}
+
+impl Peer {
+    pub fn new(peer_id: PeerId, ltvk: PublicKey) -> Self {
+        Peer {
+            peer_id: peer_id,
+            ltvk: ltvk,
+        }
+    }
+}
+
+/// An execution of the DiceMix Light protocol
+pub struct Execution<'a> {
+    peers: &'a Vec<Peer>,
+    next_kepks: PeerVec<PublicKey>,
+    rsm: RunStateMachine,
+}
+
+impl<'a> Execution<'a> {
+    pub fn new(peers: &'a Vec<Peer>, initial_kepks: Vec<PublicKey>) -> Self {
+        let num_peers = peers.len();
+
+        Self {
+            next_kepks: vec![None; num_peers],
+            peers: peers,
+            rsm: RunStateMachine::new(0, initial_kepks.into_iter().map(Some).collect()),
+        }
+    }
+
+    #[inline]
+    fn num_peers(&self) -> usize {
+        self.peers.len()
+    }
+
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum DcPhase {
@@ -52,54 +96,51 @@ impl PartialOrd for RunState {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+// State that is cleared after a run
+#[derive(Clone, Debug)]
 struct RunStateMachine {
-    run: u32,
+    count: u32,
     state: RunState,
-    kepks: VecMap<PublicKey>,
+    kepks: PeerVec<PublicKey>,
     received: BitSet,
-    otvk_hashes: Option<Vec<[u8; 32]>>,
+
+    // Blame data
+    histories: PeerVec<RunHistory>,
     peers_before_dc_exponential: Option<BitSet>,
     peers_before_dc_main: Option<BitSet>,
 }
 
 impl RunStateMachine {
-    fn new(&mut self, run: u32, kepks: VecMap<PublicKey>) -> Self {
+    fn new(count: u32, kepks: PeerVec<PublicKey>) -> Self {
         let num_peers = kepks.len();
+
+        #[inline]
+        fn new_peervec<T, U: Clone>(template: &PeerVec<T>, initial: U) -> PeerVec<U> {
+            template.into_iter().map(|opt| match opt {
+                &None => None,
+                &Some(_) => Some(initial.clone()),
+            }).collect()
+        }
+
         let new = Self {
-            run: 0,
+            count: count,
             state: RunState::DcProcess(DcPhase::Exponential),
-            kepks: kepks,
             received: BitSet::with_capacity(num_peers),
-            otvk_hashes: None,
+            histories: new_peervec(&kepks, RunHistory::new(num_peers)),
             peers_before_dc_exponential: None,
             peers_before_dc_main: None,
+            kepks: kepks,
         };
-        debug_assert!(new.consistent());
-        new
-    }
 
-    #[inline]
-    fn num_peers(&self) -> usize {
-        self.kepks.len()
+        debug_assert!(new.consistent());
+
+        new
     }
 
     #[inline]
     fn set_state(&mut self, state: RunState) {
         assert!(self.state < state);
         self.state = state;
-    }
-
-    #[inline]
-    fn consistent(&self) -> bool {
-        // TODO check also the state ...
-        match (self.peers_before_dc_exponential.is_some(),
-               self.otvk_hashes.is_some(),
-               self.peers_before_dc_main.is_some()) {
-            (false, false, false) => true,
-            (false, _, _) => false,
-            (true, x, y) => x == y,
-        }
     }
 
     fn apply_incoming_message(&mut self, incoming: (PeerIndex, IncomingPayload)) {
@@ -111,7 +152,11 @@ impl RunStateMachine {
         // The stream should never send us two messages from the same peer in the same round.
         debug_assert!(first_from_peer);
 
-        match(self.state, incoming_payload) {
+        if let IncomingPayload::Valid(ref pay) = incoming_payload {
+            self.histories[peer_index as usize].as_mut().unwrap().record_payload(pay.clone());
+        }
+
+        match (self.state, incoming_payload) {
             (RunState::DcProcess(DcPhase::Exponential), IncomingPayload::Valid(Payload::DcExponential(pay))) => {
                 unimplemented!()
             },
@@ -133,6 +178,16 @@ impl RunStateMachine {
             }
         }
         assert!(self.consistent());
+    }
+
+    fn apply_dc_exponential(&mut self, peer_index: PeerIndex, pay: DcExponential) {
+        // Perform DC-net
+        unimplemented!();
+    }
+
+    #[inline]
+    fn consistent(&self) -> bool {
+        unimplemented!()
     }
 }
 

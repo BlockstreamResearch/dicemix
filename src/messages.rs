@@ -10,7 +10,7 @@
 //! its contained types such as `Header` and `Payload` are public.
 
 pub use secp256k1::key::{PublicKey, SecretKey};
-use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum};
+use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum, Commitment};
 use field::Fp;
 
 /// A protocol message
@@ -46,7 +46,7 @@ pub struct KeyExchange {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct DcExponential {
-    pub commitment: [u8; 32],
+    pub commitment: Commitment,
     pub dc_exp: Vec<Fp>,
 }
 
