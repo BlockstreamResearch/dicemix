@@ -1,5 +1,8 @@
 use std::ops::{BitXor, BitXorAssign, Add, AddAssign, Sub, SubAssign, Neg};
 use std::iter::FromIterator;
+use rand::{Rand, Rng};
+
+use super::Randomize;
 
 pub struct DcXorElem<T>(Vec<T>);
 
@@ -95,5 +98,45 @@ impl<T> Neg for DcXorElem<T> {
     #[inline]
     fn neg(self) -> Self {
         self
+    }
+}
+
+impl Randomize for u8 {
+    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+        *self = u8::rand(rng);
+    }
+}
+
+impl<T> Randomize for Vec<T> where T: Randomize {
+    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+        for x in self.iter_mut() {
+            x.randomize(rng)
+        }
+    }
+}
+
+// TODO If we had a possibility to write overlapping trait impls we could do something like:
+//
+// impl<T> Randomize for T where T: Rand {
+//     fn randomize<R: Rng>(&mut self, rng: &mut R) {
+//         *self = T::rand(rng);
+//     }
+// }
+//
+// impl<T, U> Randomize for T
+// where
+//     T: IntoIterator<Item = U>,
+//     U: Randomize,
+// {
+//     fn randomize<R: Rng>(&mut self, rng: &mut R) {
+//         for x in self.iter_mut() {
+//             x.randomize(rng)
+//         }
+//     }
+// }
+
+impl<T> Randomize for DcXorElem<T> where T: Randomize {
+    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+        self.0.randomize(rng);
     }
 }
