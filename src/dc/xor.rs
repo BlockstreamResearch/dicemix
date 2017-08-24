@@ -4,12 +4,10 @@ use rand::{Rand, Rng};
 
 use super::Randomize;
 
-pub struct DcXorElem<T>(Vec<T>);
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct XorVec<T>(Vec<T>);
 
-pub type DcXorMsg = DcXorElem<u8>;
-pub type DcXorMsgVec = DcXorElem<DcXorMsg>;
-
-impl<T> BitXor for DcXorElem<T>
+impl<T> BitXor for XorVec<T>
 where
     T: BitXor,
     Vec<T>: FromIterator<<T as BitXor>::Output>,
@@ -19,7 +17,7 @@ where
     #[inline]
     fn bitxor(self, rhs: Self) -> Self {
         debug_assert_eq!(self.0.len(), rhs.0.len());
-        DcXorElem(
+        XorVec(
             self.0
                 .into_iter()
                 .zip(rhs.0.into_iter())
@@ -29,14 +27,14 @@ where
     }
 }
 
-impl<T> BitXorAssign for DcXorElem<T>
+impl<T> BitXorAssign for XorVec<T>
 where
     T: BitXorAssign,
 {
     #[inline]
     fn bitxor_assign(&mut self, rhs: Self) {
         debug_assert_eq!(self.0.len(), rhs.0.len());
-        DcXorElem(
+        XorVec(
             self.0
                 .iter_mut()
                 .zip(rhs.0.into_iter())
@@ -46,7 +44,7 @@ where
     }
 }
 
-impl<T> Add for DcXorElem<T>
+impl<T> Add for XorVec<T>
 where
     T: BitXor,
     Vec<T>: FromIterator<<T as BitXor>::Output>,
@@ -59,7 +57,7 @@ where
     }
 }
 
-impl<T> AddAssign for DcXorElem<T>
+impl<T> AddAssign for XorVec<T>
 where
     T: BitXor + BitXorAssign,
 {
@@ -69,7 +67,7 @@ where
     }
 }
 
-impl<T> Sub for DcXorElem<T>
+impl<T> Sub for XorVec<T>
 where
     T: BitXor,
     Vec<T>: FromIterator<<T as BitXor>::Output>,
@@ -82,7 +80,7 @@ where
     }
 }
 
-impl<T> SubAssign for DcXorElem<T>
+impl<T> SubAssign for XorVec<T>
 where
     T: BitXor + BitXorAssign,
 {
@@ -92,7 +90,7 @@ where
     }
 }
 
-impl<T> Neg for DcXorElem<T> {
+impl<T> Neg for XorVec<T> {
     type Output = Self;
 
     #[inline]
@@ -135,7 +133,7 @@ impl<T> Randomize for Vec<T> where T: Randomize {
 //     }
 // }
 
-impl<T> Randomize for DcXorElem<T> where T: Randomize {
+impl<T> Randomize for XorVec<T> where T: Randomize {
     fn randomize<R: Rng>(&mut self, rng: &mut R) {
         self.0.randomize(rng);
     }

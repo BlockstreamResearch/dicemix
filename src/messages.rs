@@ -13,6 +13,8 @@ pub use secp256k1::key::{PublicKey, SecretKey};
 use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum, Commitment};
 use field::Fp;
 
+use dc::xor::XorVec;
+
 /// A protocol message
 ///
 /// Protocol messages consist of a header and a payload.
@@ -53,7 +55,7 @@ pub struct DcExponential {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct DcMain {
     pub ok: bool,
-    pub dc_xor: Vec<Vec<u8>>,
+    pub dc_xor: XorVec<XorVec<u8>>,
     pub ke_pk: PublicKey,
     pub extension: Extension,
 }
