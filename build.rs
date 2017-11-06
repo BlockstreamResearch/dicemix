@@ -2,7 +2,7 @@ extern crate gcc;
 
 fn main() {
     // Compile the external code
-    let mut conf = gcc::Config::new();
+    let mut conf = gcc::Build::new();
 
     if cfg!(debug_assertions) {
         conf.define("DEBUG", None);
