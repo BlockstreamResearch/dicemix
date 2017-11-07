@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 use rand::{Rand, Rng};
 use serde::{Serialize, Deserialize};
 
+use super::Randomize;
+
 // The field size.
 const P: u128 = (1 << 127) - 1;
 
@@ -130,6 +132,14 @@ impl Rand for Fp {
     #[inline]
     fn rand<R: Rng>(rng: &mut R) -> Self {
         Self::from_u128_discard_msb(rng.gen::<u128>())
+    }
+
+}
+
+impl Randomize for Fp {
+    #[inline]
+    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+        *self = Self::rand(rng)
     }
 
 }
