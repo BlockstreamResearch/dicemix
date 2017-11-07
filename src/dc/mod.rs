@@ -1,6 +1,7 @@
 use rand::{Rand, Rng};
 
 pub mod xor;
+pub mod fp;
 
 // TODO https://github.com/rust-lang/rust/issues/41517
 // trait DcGroup = Add + AddAssign + Sub + SubAssign + Neg + Randomize;

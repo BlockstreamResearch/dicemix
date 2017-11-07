@@ -25,7 +25,6 @@ pub use messages::PublicKey;
 
 mod solver;
 mod rng;
-mod field;
 mod messages;
 mod state;
 mod io;

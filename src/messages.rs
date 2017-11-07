@@ -11,9 +11,9 @@
 
 pub use secp256k1::key::{PublicKey, SecretKey};
 use ::{SessionId, PeerIndex, SymmetricKey, SequenceNum, Commitment};
-use field::Fp;
 
 use dc::xor::XorVec;
+use dc::fp::Fp;
 
 /// A protocol message
 ///
@@ -55,6 +55,7 @@ pub struct DcExponential {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct DcMain {
     pub ok: bool,
+    // TODO This is not an efficient serialization.
     pub dc_xor: XorVec<XorVec<u8>>,
     pub ke_pk: PublicKey,
     pub extension: Extension,

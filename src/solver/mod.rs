@@ -1,6 +1,6 @@
 mod solver_flint;
 
-use ::field::Fp;
+use ::dc::fp::Fp;
 
 use self::solver_flint::Solver;
 

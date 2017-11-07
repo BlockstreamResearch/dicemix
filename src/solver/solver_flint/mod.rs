@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::os::raw::{c_int, c_char};
 
 use super::Solve;
-use ::field::Fp;
+use ::dc::fp::Fp;
 
 // "bindgen --whitelist-function solve --output ffi.rs solver_flint.h"
 // was used to generate the bindings.
@@ -63,7 +63,7 @@ impl Solve for Solver {
 
 #[cfg(test)]
 mod tests {
-    use ::field::Fp;
+    use ::dc::fp::Fp;
     use super::Solver;
     use super::super::Solve;
 
