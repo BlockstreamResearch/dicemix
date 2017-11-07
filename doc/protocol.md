@@ -361,3 +361,11 @@ need to be authenticated for sender-message unlinkability. So if signature verif
 bottleneck, then it is possible to drop the other signatures, which however adds complexity to the
 protocol as well as its analysis by giving the attacker much more possibility to fiddle with the
 protocol messages and reach possibly overlooked cases.
+
+---
+
+#### License
+To the extent possible under law, the DiceMix contributors who associated CC0 with this document
+have waived all copyright and related or neighboring rights to this document.
+
+[![CC0](http://i.creativecommons.org/p/zero/1.0/88x31.png)](http://creativecommons.org/publicdomain/zero/1.0/)
