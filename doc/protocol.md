@@ -117,9 +117,9 @@ loop
                 // Given p.seed, we can replay peer p's entire protocol execution, because the
                 // protocol execution is deterministic except for the input messages to be mixed,
                 // which we can recover from the DC(KE) round.
-                replay peer p's expected protocol messages of the previous run by deriving them
-                from p.seed and recovering peer p's purported input messages,
-                and set p.msg_hashes[] to peer p's my_msg_hashes[] variable on the way
+                // replay peer p's expected protocol messages of the previous run by deriving them
+                // from p.seed and recovering peer p's purported input messages,
+                // and set p.msg_hashes[] to peer p's my_msg_hashes[] variable on the way
 
                 if p has sent an unexpected message then
                     P := P \ {p}
