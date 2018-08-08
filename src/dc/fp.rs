@@ -20,14 +20,8 @@ impl Serialize for Fp {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: ::serde::Serializer
     {
-        use serde::ser::SerializeTuple;
-
-        // TODO serde currently does not support u128 natively
-        let (h, l) = as_limbs(u128::from(*self));
-        let mut tup = serializer.serialize_tuple(2)?;
-        tup.serialize_element(&h)?;
-        tup.serialize_element(&l)?;
-        tup.end()
+        let u = u128::from(*self);
+        serializer.serialize_u128(u)
     }
 }
 
@@ -38,32 +32,27 @@ impl<'de> Deserialize<'de> for Fp {
     {
         use serde::de;
 
-        // TODO serde currently does not support u128 natively
         struct Visitor;
         impl<'de> ::serde::de::Visitor<'de> for Visitor {
             type Value = Fp;
 
             fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                formatter.write_str("a pair (h, l) of u64 representing an u128 x = h||l \
-                                    such that 0 <= x < p where p = 2**127 - 1")
+                formatter.write_str("a u128 x such that 0 <= x < p where p = 2**127 - 1")
             }
 
-            fn visit_seq<A>(self, mut a: A) -> Result<Fp, A::Error>
-                where A: de::SeqAccess<'de>
+            fn visit_u128<E>(self, x: u128) -> Result<Fp, E>
+                where E: de::Error
             {
-                let h: u64 = a.next_element()?.ok_or(de::Error::invalid_length(0, &self))?;
-                let l: u64 = a.next_element()?.ok_or(de::Error::invalid_length(1, &self))?;
-                let x = ((h as u128) << 64) | (l as u128);
                 if x >= P {
-                    let unexp_str = format!("the u128 with value {:x}", x);
+                    let unexp_str = format!("the u128 with value {:x} >= 2**127 - 1", x);
                     let unexp = de::Unexpected::Other(&unexp_str);
-                    return Err(de::Error::invalid_value(unexp, &self));
+                    return Err(de::Error::invalid_value(unexp, &self))
                 }
                 Ok(Fp::from_u127(x))
             }
         }
 
-        deserializer.deserialize_tuple(2, Visitor { })
+        deserializer.deserialize_u128(Visitor { })
     }
 }
 
