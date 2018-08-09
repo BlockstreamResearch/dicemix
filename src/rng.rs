@@ -1,20 +1,16 @@
-use rand::{Rng, SeedableRng, ChaChaRng};
+use rand::{RngCore, SeedableRng, ChaChaRng, Error};
 use std::io::Cursor;
 use byteorder::{LittleEndian, ReadBytesExt};
 
-#[derive(Copy, Clone)]
+// TODO Extend this to an RNG that produces the "sum" (in a DcGroup sense) of multiple RNGs
+
 pub struct DiceMixRng {
     chacha : ChaChaRng
 }
 
 impl DiceMixRng {
     pub fn new(&key: &[u8; 32]) -> DiceMixRng {
-        let mut key32: [u32; 8] = [0; 8];
-        let mut reader = Cursor::new(key);
-        for x in &mut key32 {
-            *x = reader.read_u32::<LittleEndian>().unwrap();
-        }
-        let mut dc_rng = DiceMixRng { chacha : ChaChaRng::from_seed(&key32) };
+        let mut dc_rng = DiceMixRng { chacha : ChaChaRng::from_seed(key) };
         dc_rng.prepare_round(0);
         dc_rng
     }
@@ -23,12 +19,25 @@ impl DiceMixRng {
         // This sets
         //   blockcount = 1 (We skip the first block because it's typically used for Poly1305)
         //   nonce = round
-        self.chacha.set_counter(1u64, round as u64);
+        self.chacha.set_word_pos(1 as u128);
+        self.chacha.set_stream(round as u64);
     }
 }
 
-impl Rng for DiceMixRng {
+impl RngCore for DiceMixRng {
     fn next_u32(&mut self) -> u32 {
         self.chacha.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.chacha.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.chacha.fill_bytes(dest)
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
+        self.chacha.try_fill_bytes(dest)
     }
 }

@@ -1,4 +1,4 @@
-use rand::{Rand, Rng};
+use rand::Rng;
 
 pub mod xor;
 pub mod fp;
@@ -13,5 +13,5 @@ pub mod fp;
 /// `Rand` is implemented for `T`. However, given a vector with an already defined length, it is
 /// possible to randomize the vector by preserving its length and randomizing its elements.
 pub trait Randomize {
-    fn randomize<R: Rng>(&mut self, rng: &mut R);
+    fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R);
 }

@@ -1,6 +1,7 @@
 use std::ops::{Neg, Add, AddAssign, Sub, SubAssign, Mul, MulAssign};
 use std::cmp::Ordering;
-use rand::{Rand, Rng};
+use rand::Rng;
+use rand::distributions::{Standard, Distribution};
 use serde::{Serialize, Deserialize};
 
 use super::Randomize;
@@ -117,18 +118,18 @@ impl From<Fp> for u128 {
     }
 }
 
-impl Rand for Fp {
+impl Distribution<Fp> for Standard {
     #[inline]
-    fn rand<R: Rng>(rng: &mut R) -> Self {
-        Self::from_u128_discard_msb(rng.gen::<u128>())
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Fp {
+        Fp::from_u128_discard_msb(rng.gen::<u128>())
     }
 
 }
 
 impl Randomize for Fp {
     #[inline]
-    fn randomize<R: Rng>(&mut self, rng: &mut R) {
-        *self = Self::rand(rng)
+    fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
+        *self = rng.gen::<Fp>();
     }
 
 }

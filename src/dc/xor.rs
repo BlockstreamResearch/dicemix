@@ -1,6 +1,7 @@
 use std::ops::{BitXor, BitXorAssign, Add, AddAssign, Sub, SubAssign, Neg};
 use std::iter::FromIterator;
-use rand::{Rand, Rng};
+use rand::Rng;
+use rand::distributions::Standard;
 
 use super::Randomize;
 
@@ -100,13 +101,13 @@ impl<T> Neg for XorVec<T> {
 }
 
 impl Randomize for u8 {
-    fn randomize<R: Rng>(&mut self, rng: &mut R) {
-        *self = u8::rand(rng);
+    fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
+        *self = rng.gen::<u8>();
     }
 }
 
 impl<T> Randomize for Vec<T> where T: Randomize {
-    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+    fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
         for x in self.iter_mut() {
             x.randomize(rng)
         }
@@ -116,7 +117,7 @@ impl<T> Randomize for Vec<T> where T: Randomize {
 // TODO If we had a possibility to write overlapping trait impls we could do something like:
 //
 // impl<T> Randomize for T where T: Rand {
-//     fn randomize<R: Rng>(&mut self, rng: &mut R) {
+//     fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
 //         *self = T::rand(rng);
 //     }
 // }
@@ -126,7 +127,7 @@ impl<T> Randomize for Vec<T> where T: Randomize {
 //     T: IntoIterator<Item = U>,
 //     U: Randomize,
 // {
-//     fn randomize<R: Rng>(&mut self, rng: &mut R) {
+//     fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
 //         for x in self.iter_mut() {
 //             x.randomize(rng)
 //         }
@@ -134,7 +135,7 @@ impl<T> Randomize for Vec<T> where T: Randomize {
 // }
 
 impl<T> Randomize for XorVec<T> where T: Randomize {
-    fn randomize<R: Rng>(&mut self, rng: &mut R) {
+    fn randomize<R: Rng + ?Sized>(&mut self, rng: &mut R) {
         self.0.randomize(rng);
     }
 }

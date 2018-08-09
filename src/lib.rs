@@ -1,4 +1,3 @@
-#![feature(i128_type)]
 #![feature(discriminant_value)]
 
 extern crate rand;

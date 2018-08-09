@@ -5,7 +5,7 @@ authors = ["Tim Ruffing <crypto@timruffing.de>"]
 license = "MIT"
 
 [dependencies]
-rand = { version = "0.3", features = ["i128_support"] }
+rand = { version = "0.5", features = ["i128_support"] }
 byteorder = "1"
 secp256k1 = "0.7.1"
 tokio-io = "0.1"
