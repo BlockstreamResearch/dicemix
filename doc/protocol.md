@@ -157,17 +157,18 @@ loop
         p.seed_dcsimple := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DC")
         p.prg_dcsimple := new_prg(seed_dcsimple)
 
-    // Commit on the messages
-    my_commit := hash("COMMIT" || my_kesk || sid_hash || my_id || j ||
-                      my_msgs[0] || ... || my_msgs[my_num_msgs - 1])
-
-    // Run a DC-net with exponential encoding
+    // Obtain messages
     my_msgs[] := fresh_msgs()
     my_num_msgs := |my_msgs[]|
     sum_num_msgs := my_num_msgs
     for all p in P do
         sum_num_msgs := sum_num_msgs + p.num_msgs
 
+    // Commit on the messages
+    my_commit := hash("COMMIT" || my_kesk || sid_hash || my_id || j ||
+                      my_msgs[0] || ... || my_msgs[my_num_msgs - 1])
+
+    // Run a DC-net with exponential encoding
     my_msg_hashes[] := array of my_num_msgs finite field elements
     my_dc[] := array of sum_num_msgs finite field elements, all initialized with 0
     for j := 0 to my_num_msgs - 1 do
