@@ -1,3 +1,5 @@
+**This document is a working draft. Substantial changes are possible.**
+
 # DiceMix Light
 
 DiceMix Light is a cryptographic P2P mixing protocol. It enables a group of mutually distrusting
@@ -16,7 +18,7 @@ and detailed definitions.
 Peers are connected via a terminating reliable broadcast mechanism, e.g., a server receiving
 protocol messages from each peer and forwarding them to all other peers. The broadcast mechanism is
 responsible for ensuring that the same protocol message is forwarded to all other peers and for
-notifiying the other peers when a peer has failed to send a protocol message in time.
+notifying the other peers when a peer has failed to send a protocol message in time.
 
 Even if not strictly necessary, it is recommended that the peers communicate to the broadcast
 mechanism via a channel that provides confidentiality, authentication of the broadcast mechanism,
@@ -47,9 +49,21 @@ TODO: Write
 
 ### Building Blocks
 
+#### Finite Field
+We need a finite field F of size q which is large enough to ensure that the probability of a
+collision is low when `sum_num_msgs` random field elements are sampled, where `sum_num_msgs` is the
+number of messages sent by the peers altogether. If a collision occurs, the peers involved in the
+collision will be excluded and cannot finish the protocol. Reasonable field size are for example
+q ≈ 2³¹ or q ≈ 2⁴⁰, yielding probabilities of around 4.6E-8 and 9.0E-11 for a fixed honest peer to
+be excluded in a run of the protocol, assuming this peer sends one message and there are 99 other
+messages sent in the run.
+
+#### Group
+We need a group G where the discrete logarithm problem is hard.
+
 #### Pseudorandom Generator
  * `new_prg(seed)` initializes a PRG with seed `seed` and tweak `tweak`.
- * randomness can be obtained using calls such as `prg.get_bytes(n)` or `prg.get_field_element()`.
+ * Randomness can be obtained using calls such as `prg.get_bytes(n)` or `prg.get_field_element()`.
 
 #### Non-interactive Key Exchange
 We need a non-interactive key exchange protocol secure in the CKS model.
@@ -59,26 +73,27 @@ We need a non-interactive key exchange protocol secure in the CKS model.
  additional bit is not sufficient; `kepk` must determine the full curve point.)
  * `validate_kepk(kepk)` outputs `true` iff `kepk` is a valid public key.
  * `shared_secret(kesk, kepk, my_id, their_id, tweak)` derives the shared secret between party
- `my_id` with secret key `kesk` and `their_id` with public key `kepk`, using the tweak `tweak`
+ `my_id` with secret key `kesk` and `their_id` with public key `kepk`, using the tweak `tweak`.
 
 #### Hash Functions
- * `hash` is a cryptographic hash function with output length `2k`.
- * `hash_short` is a cryptographic hash function with output length `k`.
+ * `hash` is a cryptographic hash function whose output is long enough to ensure collision
+ resistance.
+ * `hash_into_group` is a cryptographic hash function into the group G.
 
 Both hash functions are modeled as random oracles.
 
 ### Pseudocode Conventions
  * The (non-excluded) peers are stored in set `P`.
- * `sgn(x)` is the signum function.
+ * `sgn(x)` is the sign function.
  * `**` denotes exponentiation.
- * `^` denotes bitwise XOR.
- * `(o)` denotes the arithmetic operator `o` in the finite field, e.g., `(+)` is addition in
- the finite field.
+ * `^` denotes XOR.
+ * `(+)` and `(*)` denote addition and multiplication in the finite field F.
+ * `<+>` and `<*>` denote the group operation and scalar multiplication in the group G.
  * String constants such as `"KE"` are symbolic, their actual representation as bytes is
  defined below.
  * Every peer `p` signs all its messages using the respective long-term signing key `p.ltsk`.
  The signatures are omitted in the pseudocode for readability. A peer who receives an incorrectly
- signed message is immediately treats the sending peer as offline and discards the message.
+ signed message immediately treats the sending peer as offline and discards the message.
 
 ### Pseudocode
 ```
@@ -94,7 +109,7 @@ loop
     // In later runs, we exclude peers who have been offline or malicious in the previous run.
     if run = 0 then
         // Key exchange
-        (my_kesk, my_kepk) := new_sig_keypair()
+        (my_kesk, my_kepk) := new_ke_keypair()
 
         // FIXME sign the kepk with the long-term key
         broadcast "KEPK" || my_kepk
@@ -119,17 +134,18 @@ loop
                 // which we can recover from the DC(KE) round.
                 replay peer p's expected protocol messages of the previous run by deriving them
                 from p.seed and recovering peer p's purported input messages,
-                and set p.msg_hashes[] to peer p's my_msg_hashes[] variable on the way
+                and set p.slot_reservations[] to peer p's my_slot_reservations[] variable on the way
 
                 if p has sent an unexpected message then
                     P := P \ {p}
 
-            // Exclude peers who are involved in a slot collision, i.e., a message hash collision
-            for all (p1, p2) in P^2 such that
-            there is i and j with p1.msg_hashes[i] = p2.msg_hashes[j] and (p1 != p2 or i != j) do
+            // Exclude pairs (p1, p2) of peers where both p1 and p2 have not sent unexpected
+            // protocol messages but the slots of p1 and p2 collide
+            for all (p1, p2) in P^2 for which there is i and j
+            with p1.slot_reservations[i] = p2.slot_reservations[j] and (p1 != p2 or i != j) do
                 P_exclude := P_exclude U {p1, p2}
 
-            // Rotate keys
+            // Shift keys
             (my_kesk, my_kepk) := (my_next_kesk, my_next_kepk)
             (my_next_kesk, my_next_kepk) := (undef, undef)
 
@@ -150,12 +166,16 @@ loop
     sid_hash := hash("SID" || sid)
     // FIXME more SIDs later?
 
+    // Initialize private PRG for this run
+    private_seed := hash("PRG" || sid_hash || my_id || kesk)
+    private_prg = new_prg(private_seed)
+
     // Derive shared keys
     for all p in P do
         p.seed_dcexp := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DCEXP")
-        p.prg_dcexp := new_prg(seed_dcexp)
+        p.prg_dcexp := new_prg(p.seed_dcexp)
         p.seed_dcsimple := shared_secret(my_kesk, p.kepk, my_id, p.id, sid_hash || "DC")
-        p.prg_dcsimple := new_prg(seed_dcsimple)
+        p.prg_dcsimple := new_prg(p.seed_dcsimple)
 
     // Obtain messages
     my_msgs[] := fresh_msgs()
@@ -164,24 +184,28 @@ loop
     for all p in P do
         sum_num_msgs := sum_num_msgs + p.num_msgs
 
-    // Commit on the messages
-    my_commit := hash("COMMIT" || my_kesk || sid_hash || my_id || j ||
-                      my_msgs[0] || ... || my_msgs[my_num_msgs - 1])
+    // Run DC-net in group G
+    my_dc_group := 0
+    for i := 0 to my_num_msgs - 1 do
+        my_dc_group := my_dc_group <+> hash_into_group("COMMIT" || my_kesk || sid_hash || my_id || i || my_msgs[i])
 
-    // Run a DC-net with exponential encoding
-    my_msg_hashes[] := array of my_num_msgs finite field elements
+    for all p in P do
+        my_dc_group := my_dc_group <+> (sgn(my_id - p.id) <*> p.prg_dcgroup.get_group_element())
+
+    // Run a DC-net with exponential encoding for slot assignment
     my_dc[] := array of sum_num_msgs finite field elements, all initialized with 0
+    my_slot_reservations[] := array of my_num_msgs finite field elements, all initialized with 0
     for j := 0 to my_num_msgs - 1 do
-        my_msg_hashes[j] := hash_short(my_msgs[j])
+        my_slot_reservations[j] := private_prg.get_field_element()
         for i := 0 to sum_num_msgs - 1 do
-            my_dc[i] := my_dc[i] (+) (my_msg_hashes[j] ** (i + 1))
+            my_dc[i] := my_dc[i] (+) (my_slot_reservations[j] ** (i + 1))
 
     for all p in P do
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] (+) (sgn(my_id - p.id) (*) p.prg_dcexp.get_field_element())
 
-    broadcast "DCEXP" || my_commit || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-    receive "DCEXP" || p.commit || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+    broadcast "SR" || my_dc_group || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+    receive "SR" || p.dc_group || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
         missing P_exclude
 
     if P_exclude != {} then
@@ -197,23 +221,24 @@ loop
          dc_combined[i] = (sum)(j := 0 to sum_num_msgs - 1, roots[j] ** (i + 1))"
          for the array roots[]
 
-    all_msg_hashes[] := sort(roots[])
+    all_slot_reservations[] := sort(roots[])
 
-    // Run an ordinary DC-net with slot reservations
+    // Run an XOR DC-net with slot assignment
     slot_size := |my_msgs[0]|
 
     slots[] := array of my_num_msg integers, initialized with undef
-    my_ok := true
+    ok := true
     for j := 0 to my_num_msgs - 1 do
         if there is exactly one i
-        with all_msg_hashes[i] = my_msg_hashes[j] then  // constant time in i
+        with all_slot_reservations[i] = my_slot_reservations[j] then  // constant time in i
             slots[j] := i
         else
-            my_ok := false
+            ok := false
+            break
 
-    if not my_ok then
-        // Even though the run will be aborted (because we send my_ok = false), transmit the
-        // message in a deterministic slot. This enables the peers to recompute our commitment.
+    if not ok then
+        // Even though the run will be aborted, transmit the message in a deterministic slot.
+        // This enables the peers to recompute our commitment.
         for j := 0 to my_num_msgs - 1 do
             slots[j] := j
 
@@ -225,19 +250,25 @@ loop
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] ^ p.prg_dcsimple.get_bytes(slot_size)
 
+    if not ok then
+        // Ensure that this DC-net will not be successful
+        for i := 0 to sum_num_msgs - 1 do
+            my_dc[i] := my_dc[i] ^ prg_private.get_bytes(slot_size)
+
     if (my_next_kesk, my_next_kepk) = (undef, undef) and |P| > 1 then
         // Key exchange
-        (my_next_kesk, my_next_kepk) := new_sig_keypair()
+        (my_next_kesk, my_next_kepk) := new_ke_keypair()
         // FIXME sign the kepk with the long-term key
 
-        broadcast "DCKE" || my_ok || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DCKE" || p.ok || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1]
+        // TODO Why did we put the KE here and not with SK/CF?
+        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1]
         from all p in P
             where validate_kepk(p.next_kepk)
             missing P_exclude
     else
-        broadcast "DC" || ok || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DC" || p.ok || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
             missing P_exclude
 
     if P_exclude != {} then
@@ -248,22 +279,24 @@ loop
     for all p in P do
         for i := 0 to sum_num_msgs - 1 do
             msgs[i] := msgs[i] ^ p.dc[i]
+    msgs[] := sort(msgs[])
 
-    // Verify that every peer agrees to proceed
-    if not my_ok then
-        continue
+    // Resolve the DC-net in G and verify commitment
+    commit1 := my_dc_group
     for all p in P do
-        if not p.ok then
-            continue while
+        commit1 := commit1 <+> (sgn(my_id - p.id) <*> p.dc_group)
 
-    // Verify message hashes
+    commit2 := <0>
     for i := 0 to sum_num_msgs - 1 do
-        if hash_short(msgs[i]) != all_msg_hashes[i] then
-            continue while
+        commit2 := commit <+> hash_into_group(msgs[i])
+
+    if commit1 != commit2 then
+        continue
 
     for j := 0 to my_num_msgs - 1 do
-        if my_msgs[j] != msgs[slots[j]] then  // constant time in slots[j] and in msgs[slots[j]]
-            fail "One of my own messages is missing."
+        if there is no i with my_msgs[j] = msgs[i] then  // constant time in i and my_msgs[j]
+            // One of our own messages is missing.
+            continue  // (***)
 
     // Confirmation
     my_confirmation := validate_and_confirm(msgs[])
@@ -291,70 +324,64 @@ loop
 #### Sender-Message Unlinkability
 The security argument is similar to the one presented for the [original DiceMix protocol][dicemix].
 
-Note: It is crucial that for every run, every peer either starts confirmation with another peer, or
-reveals the shared key with the other peer (where revealing the key exchange secret key is
-equivalent to revealing shared keys with everybody). This holds true, because before starting
-confirmation, only shared keys with peers not involved in confirmation are revealed, and after
-starting confirmation, shared keys (and the key exchange secret key) are not revealed.
+Note: It is crucial that for every run, every honest peer either enters the confirmation phase
+or reveals the secret key of the key exchange. This holds true, because no honest peer will reveal
+the secret key after it has started confirmation; in particular it will use a fresh key after
+confirmation fails to ensure that the secret key will not be revealed in a further run.
+
 
 #### Termination
 For termination, we assume that the broadcast mechanism is honest, i.e., it delivers messages
 correctly and it does not equivocate.
 
-The honest peers, who are assumed to receive the same messages, hold by construction the same state
-in their consensus-critical public variables and take the same consensus-critical control flow
-decisions, unless an honest peer fails with "One of my own messages in missing". This failure
-happens only with negligible probability for an honest peer, because this requires the attacker to
-find a second preimage of the message hash of the honest peer.
+Ignoring line `(***)`, the honest peers, who are assumed to receive the same messages, hold by
+construction the same state in their consensus-critical public variables and take the same
+consensus-critical control flow decisions.
+Assume that there is a run in which an honest peer p1 hits line `(***)` and an honest peer p2
+does not hit line `(***)`. That implies that there is a message m1 of p1 that the attacker has
+replaced in the XOR DC-net and there is a message m2 of p2 that the attacker has not replaced in
+the XOR DC-net. Since the commitments verify, the attacker has either solved the generalized
+birthday problem in G, which happens only with negligible probability because the discrete
+logarithm problem is hard in G, or the attacker has replaced the sum of the messages hashes over
+M = {m1, m2, ...} with the sum of messages hashes over some M' with m1 ∉ M' and m2 ∈ M', which
+happens only with negligible probability because the attacker cannot predict m1 and m2 in the SR
+round.
 
 By correctness of the protocol, a protocol run terminates if every peer sends expected messages and
-there is no message hash collision (and thus no slot collision). Consequently we can distinguish
-two cases if the protocol fails.
+there is no collision of group elements in the slot reservation (and thus no slot collision).
+Consequently we can distinguish two cases if the protocol fails.
   1. *There is a peer who has failed to send an expected message at least once.*
 
   The honest peers exclude this peer by construction.
 
-  2. *There is a message hash collision but no peer involved in the message hash collision has
-  failed to send an expected message.*
+  2. *There is a slot collision but no peer involved in the slot has failed to send an expected
+  message.*
 
   We show that then all peers involved in the message hash collision are malicious with
   overwhelming probability.
 
-  First, if only one peer is involved in the message hash collision (i.e., the peer sends the same
-  message hash for multiple slot reservations), then this peer is obviously malicious with
-  overwhelming probaility.
+  First, if only one peer is involved in the message hash collision, then this peer is obviously
+  malicious with probability around 1/q.
 
-  Second, we consider the case that multiple peers are involved in a message hash collision. If one
-  peer was honest, then the other peers involved in the collision could have derived the expected
-  message of the honest user in the DC(KE) round of the previous run only with negligible
-  probability; observe that they cannot have copied the honest peer's message hash either, because
-  then their commitments would be expected only with negligible probability, as the commitments
-  include the peer ID.
+  Second, we consider the case that multiple peers are involved in a collision. If one peer was
+  honest, then the other peers involved in the collision could have derived the group element sent
+  by the honest user the slot reservation only probability around 1/q; observe that they cannot
+  have copied the honest peer's slot reservation message either, because then their DC-netpads
+  in the DC-net in the group G would be expected only probability around 1/q, as the derivation of
+  the shared keys includes the peer ID.
 
-  Thus all peers involved in the message hash collision are malicious with overwhelming
-  probability, and the honest peers exclude at least one such malicious peer.
+  Thus all peers involved in the slot collision are malicious with probability around 1/q, and the
+  honest peers exclude at least one such malicious peer.
 
 In both cases, the honest peers exclude at least one disruptive, i.e., malicious or offline, peer.
 Since all honest peers exclude the same disruptive peers, they all start the next run in the same
 consensus-critical state. At some point, only honest peers will remain in the protocol execution
-and the either protocol succeeds or fails expectly (in the case that only one peer remains).
+and the protocol either succeeds or fails because only one peer remains.
 
 [dicemix]: https://www.internetsociety.org/doc/p2p-mixing-and-unlinkable-bitcoin-transactions
   "P2P Mixing and Unlinkable Bitcoin Transactions. Tim Ruffing, Pedro Moreno-Sanchez, Aniket Kate. Network and Distributed System Security Symposium 2017 (NDSS'17)"
 
 ### Possible Improvements
-
-#### Smaller Field
-To reduce the field size, it is possible to split the message hash in two halves, and send both halves
-in different exponential DC-nets. Then only one of the DC-nets is used for slot reservation and the
-other one is just used to verify integrity of the message. Peers must abort if their second half is not
-present in the second DC-net, but it is not necessary to bind the two halves together, because the
-number of combinations of left and right halves that the attacker can exploit is not too large.
-Still the loss of security is quadratic in the number of mixed messages.
-
-This can speed up the computation, because polynomial factorization in a 64-bit field is faster
-than in a 128 bit field by more than a factor of 2 (at least in FLINT). Moreover, it is possible to
-handle both DC-nets in parallel.
 
 #### Only Sign the Key Exchange
 In principle, it suffices to sign the key exchange messages. All other protocol messages do not
