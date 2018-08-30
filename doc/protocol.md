@@ -101,29 +101,47 @@ run := -1
 P_exclude := {}
 (my_kesk, my_kepk) := (undef, undef)
 (my_next_kesk, my_next_kepk) := (undef, undef)
+my_confirmation := undef
+
+if there are duplicate value in ids[] then
+    fail "Duplicate peer IDs."
 
 loop
     run := run + 1
 
-    // In the first run, we perform a key exchange.
-    // In later runs, we exclude peers who have been offline or malicious in the previous run.
-    if run = 0 then
+    if P_exclude = {} then
         // Key exchange
-        (my_kesk, my_kepk) := new_ke_keypair()
-
         // FIXME sign the kepk with the long-term key
-        broadcast "KEPK" || my_kepk
-        receive "KEPK" || p.kepk from all p in P
-            where validate_kepk(p.kepk)
-            missing P_missing
+        // (my_next_kesk, my_next_kepk) := new_ke_keypair()
 
-        P := P \ P_missing
-    else
-        if P_exclude = {} then
+        // In the first run, we perform a key exchange.
+        // In later runs, we either confirm or exclude peers who have been offline or malicious in the
+        // previous run.
+        if run = 0 or my_confirmation != undef then
+            broadcast "KECF" || my_next_kepk || my_confirmation
+            receive "KECF" || p.next_kepk || p.confirmation from all p in P
+                where validate_kepk(p.next_kepk)
+                missing P_missing
+
+            if my_confirmation != undef then
+                // Check confirmation
+                P_exclude := check_confirmations(msgs[], {p.id | p in P U {my_id})})
+
+                assert P_exclude ⊂ P_missing
+
+                if P_exclude = {} then
+                    return successfully
+
+                my_confirmation := undef
+
+            P := P \ P_missing
+
+        else
             // Publish ephemeral secret and determine malicious peers
-            broadcast "KESK" || my_kesk
-            receive "KESK" || p.kesk from all p in P
-            missing P_missing
+            broadcast "KESK" || my_next_kepk || my_kesk
+            receive "KESK" || p.next_kepk || p.kesk from all p in P
+                where validate_kepk(p.next_kepk)
+                missing P_missing
 
             P := P \ P_missing
 
@@ -131,7 +149,7 @@ loop
             for all p in P do
                 // Given p.seed, we can replay peer p's entire protocol execution, because the
                 // protocol execution is deterministic except for the input messages to be mixed,
-                // which we can recover from the DC(KE) round.
+                // which we can recover from the DC round.
                 replay peer p's expected protocol messages of the previous run by deriving them
                 from p.seed and recovering peer p's purported input messages,
                 and set p.slot_reservations[] to peer p's my_slot_reservations[] variable on the way
@@ -145,22 +163,22 @@ loop
             with p1.slot_reservations[i] = p2.slot_reservations[j] and (p1 != p2 or i != j) do
                 P_exclude := P_exclude U {p1, p2}
 
-            // Shift keys
-            (my_kesk, my_kepk) := (my_next_kesk, my_next_kepk)
-            (my_next_kesk, my_next_kepk) := (undef, undef)
+            if P_exclude = {} then
+                fail "Computationally unreachable"
 
-        P := P \ P_exclude
+        // Shift keys
+        (my_kesk, my_kepk) := (my_next_kesk, my_next_kepk)
+        (my_next_kesk, my_next_kepk) := (undef, undef)
+
+
+    P := P \ P_exclude
+    P_exclude := {}
 
     if |P| = 0 then
         fail "No peers left."
 
-    P_exclude := {}
-
     // Build session ID
     ids[] := sort({p.id | p in P} U {my_id})
-
-    if there are duplicate value in ids[] then
-        fail "Duplicate peer IDs."
 
     sid := version || options || run || ids[0] || ... || ids[|P|]
     sid_hash := hash("SID" || sid)
@@ -255,21 +273,9 @@ loop
         for i := 0 to sum_num_msgs - 1 do
             my_dc[i] := my_dc[i] ^ prg_private.get_bytes(slot_size)
 
-    if (my_next_kesk, my_next_kepk) = (undef, undef) and |P| > 1 then
-        // Key exchange
-        (my_next_kesk, my_next_kepk) := new_ke_keypair()
-        // FIXME sign the kepk with the long-term key
-
-        // TODO Why did we put the KE here and not with SK/CF?
-        broadcast "DCKE" || my_next_kepk || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DCKE" || p.next_kepk || p.dc[0] || ... || p.dc[sum_num_msgs - 1]
-        from all p in P
-            where validate_kepk(p.next_kepk)
-            missing P_exclude
-    else
-        broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
-        receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
-            missing P_exclude
+    broadcast "DC" || my_dc[0] || ... || my_dc[sum_num_msgs - 1]
+    receive "DC" || p.dc[0] || ... || p.dc[sum_num_msgs - 1] from all p in P
+        missing P_exclude
 
     if P_exclude != {} then
         continue
@@ -299,24 +305,7 @@ loop
             continue  // (***)
 
     // Confirmation
-    my_confirmation := validate_and_confirm(msgs[])
-    if my_confirmation != undef then
-        continue
-
-    broadcast "CF" || my_confirmation
-    receive "CF" || p.confirmation from all p in P
-        missing P_exclude
-
-    if P_exclude != {} then
-        continue
-
-    // Check confirmation
-    P_exclude := check_confirmations(msgs[], {(p.id, p.confirmation) | p in P})
-
-    if P_exclude != {} then
-        continue
-
-    return successfully
+    my_confirmation := confirm(msgs[], {p.id | p in P U {my_id})})
 ```
 
 ### Security
