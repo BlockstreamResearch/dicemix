@@ -9,6 +9,7 @@ fn main() {
     }
 
     conf.cpp(true)
+        .include("/usr/local/include/flint")
         .file("src/solver/solver_flint/solver_flint.cpp")
         .compile("libsolver_flint.a");
 

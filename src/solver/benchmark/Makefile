@@ -1,9 +1,9 @@
 impl = flint
 
-src_flint = ../solver_flint.cpp
+src_flint = ../solver_flint/solver_flint.cpp
 obj_flint = $(src:.cpp=.o)
 
-CPPFLAGS = -DSTANDALONE -O3
+CPPFLAGS = -DSTANDALONE -O3 -I/usr/local/include/flint
 LDFLAGS_flint = -lflint -lgmp
 
 output/solver: output $(obj)
