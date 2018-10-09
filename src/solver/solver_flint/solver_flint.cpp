@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
         it->read();
     }
 
-    int ret = solve_impl(messages, p, m, s);
+    int ret = solve_impl(messages, p, s);
 
     if (ret == 0) {
         cout << "Messages:" << endl << "[";
