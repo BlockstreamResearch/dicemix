@@ -1,11 +1,9 @@
-#![feature(discriminant_value)]
-
-extern crate rand;
 extern crate byteorder;
-extern crate secp256k1;
 extern crate bytes;
-extern crate tokio_io;
+extern crate rand;
+extern crate secp256k1;
 extern crate serde;
+extern crate tokio_io;
 #[macro_use]
 extern crate serde_derive;
 extern crate bincode;
@@ -17,17 +15,17 @@ extern crate lazy_static;
 extern crate bit_set;
 extern crate blake2;
 
-use std::mem;
 use secp256k1::Secp256k1;
+use std::mem;
 
 pub use messages::PublicKey;
 
-mod solver;
-mod rng;
 mod messages;
+mod rng;
+mod solver;
 // mod state;
-mod io;
 mod dc;
+mod io;
 
 lazy_static! {
     pub static ref SECP256K1: Secp256k1 = Secp256k1::new();
@@ -67,17 +65,13 @@ pub struct Options {
 impl Options {
     fn new_simple(variant: Variant) -> Self {
         match variant {
-            Variant::PlainEcdsa => {
-                Self {
-                    variant: Variant::PlainEcdsa,
-                    extension_variant: mem::discriminant(&messages::Extension::None),
-                }
+            Variant::PlainEcdsa => Self {
+                variant: Variant::PlainEcdsa,
+                extension_variant: mem::discriminant(&messages::Extension::None),
             },
-            Variant::ValueShuffleElementsEcdsa => {
-                Self {
-                    variant: Variant::ValueShuffleElementsEcdsa,
-                    extension_variant: mem::discriminant(&messages::Extension::DcAddSecp256k1Scalar()),
-                }
+            Variant::ValueShuffleElementsEcdsa => Self {
+                variant: Variant::ValueShuffleElementsEcdsa,
+                extension_variant: mem::discriminant(&messages::Extension::DcAddSecp256k1Scalar()),
             },
         }
     }
@@ -94,6 +88,5 @@ impl Options {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-    }
+    fn it_works() {}
 }
