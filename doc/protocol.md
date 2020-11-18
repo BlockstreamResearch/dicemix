@@ -4,7 +4,7 @@
 
 DiceMix Light is a cryptographic P2P mixing protocol. It enables a group of mutually distrusting
 peers, each of them holding an input message of identical size, to agree on the set of their input
-messages anonymously, i.e., without revealing the which peer sends which input message. The
+messages anonymously, i.e., without revealing which peer sends which input message. The
 protocol provides this functionality without the help of a trusted proxy, and succeeds even in the
 presence of malicious peers trying to prevent the honest peers from completing the protocol.
 
