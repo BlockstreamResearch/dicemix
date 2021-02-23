@@ -121,14 +121,11 @@ int main(int argc, char* argv[])
     vector<fmpzxx> s(n);
     vector<fmpzxx> messages(n);
 
-    fmpzxx m;
-    m.read();
-
     for (vector<fmpzxx>::iterator it = s.begin(); it != s.end(); it++) {
         it->read();
     }
 
-    int ret = solve_impl(messages, p, m, s);
+    int ret = solve_impl(messages, p, s);
 
     if (ret == 0) {
         cout << "Messages:" << endl << "[";
@@ -146,7 +143,6 @@ extern "C" int solve(char** const out_messages, const char* prime, const char** 
     // Exceptions should never propagate to C (undefined behavior).
     try {
         fmpzxx p;
-        fmpzxx m;
 
         vector<fmpzxx> s(n);
         vector<fmpzxx> messages(n);
