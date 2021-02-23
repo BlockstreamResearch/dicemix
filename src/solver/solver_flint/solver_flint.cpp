@@ -43,8 +43,9 @@ int solve_impl(vector<fmpzxx>& messages, const fmpzxx& p, const vector<fmpzxx>& 
         return RET_INPUT_ERROR;
     }
 
-    fmpz_mod_polyxx poly(p);
-    fmpz_mod_poly_factorxx factors;
+    fmpz_modxx_ctx ctx(p);
+    fmpz_mod_polyxx poly(ctx);
+    fmpz_mod_poly_factorxx factors(ctx);
     factors.fit_length(n);
     vector<fmpzxx> coeff(n);
 
